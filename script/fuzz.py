@@ -1,6 +1,6 @@
 import os
 
-file_list = [
+path_list = [
     "./testdata/project/blocking/cockroach/10214/cockroach10214_test.go",
     "./testdata/project/blocking/cockroach/1055/cockroach1055_test.go",
     "./testdata/project/blocking/cockroach/10790/cockroach10790_test.go",
@@ -70,10 +70,18 @@ file_list = [
     "./testdata/project/blocking/syncthing/4829/syncthing4829_test.go",
     "./testdata/project/blocking/syncthing/5795/syncthing5795_test.go",
 ]
+file_names = map(lambda x: x.split("/")[-1], path_list)
+fuzz_names = map(lambda x: "FuzzGen" + x.captialize(), map(lambda x: x.split("_test.go")[0], file_names))
 
 def inst_file(fn):
-    print(f"handle {fn}",end="")
+    print(f"handle {fn}", end="")
+    os.system(f"./sw.exe --file {fn}")
     print("\tok")
 
-for fn in file_list:
+def fuzz_target(fname, fn):
+    print(f"test {fn}", end="")
+    os.system(f"go test -fuzz {fname}")
+    print("ok")
+
+for fn in path_list:
     inst_file(fn)

@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"go/token"
 	"math/rand"
 	"sync"
 	"testing"
@@ -15,6 +16,30 @@ type routineInfo struct {
 	pos    string
 	finish bool
 }
+
+type chaninfo struct {
+	decl token.Pos
+	size int
+}
+
+type AllChanInfos struct {
+	m sync.Map
+}
+
+func (info *AllChanInfos) Add(pos token.Pos, size int) {
+	info.m.Store(pos, &chaninfo{pos, size})
+}
+
+func (info *AllChanInfos) Find(pos token.Pos) *chaninfo {
+	if v, ok := info.m.Load(pos); ok {
+		if vv, ok := v.(*chaninfo); ok {
+			return vv
+		}
+	}
+	return nil
+}
+
+var ChanInfos AllChanInfos
 
 type AllInfos struct {
 	m sync.Map

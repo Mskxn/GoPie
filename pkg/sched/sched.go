@@ -19,8 +19,8 @@ const (
 	RLOCK
 	RUNLOCK
 	SEND
-	RECVED
-	CLOSED
+	RECV
+	CLOSE
 	WGADD
 	WGDONE
 	WGWAIT
@@ -33,6 +33,12 @@ const (
 	S_UNLOCK  = UNLOCK
 	S_RLOCK   = RLOCK
 	S_RUNLOCK = RUNLOCK
+	W_SEND    = SEND | CLOSE
+	W_RECV    = RECV
+	W_CLOSE   = CLOSE
+	S_SEND    = SEND
+	S_RECV    = RECV
+	S_CLOSE   = CLOSE
 )
 
 func init() {
@@ -76,7 +82,7 @@ func SE(id int, e int) {
 func Leakcheck(t *testing.T) {
 	if event == 0 {
 		event = (1 << 32) - 1
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(timeout)
 	}
 	opts := []goleak.Option{
 		goleak.IgnoreTopFunction("time.Sleep"),
