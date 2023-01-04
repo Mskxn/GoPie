@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pkg/goleak" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/testdata/project/go-ethereum" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/testdata/project/go-ethereum-inst" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/testdata/project/go-ethereum-inst-all" vcs="Git" />
+  </component>
+</project>

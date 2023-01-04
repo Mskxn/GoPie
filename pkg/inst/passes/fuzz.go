@@ -3,15 +3,18 @@ package passes
 import (
 	"go/ast"
 	"go/token"
+	"io/ioutil"
 	"log"
 	"strings"
+	"toolkit/pkg/inst"
+	"toolkit/pkg/utils/gofmt"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
 
 func RunFuzzPass(in, out string) error {
-	p := fuzzPass{}
-	iCtx, err := NewInstContext(in)
+	p := FuzzPass{}
+	iCtx, err := inst.NewInstContext(in)
 	if err != nil {
 		log.Fatalf("Analysis source code failed %v", err)
 	}
@@ -19,11 +22,18 @@ func RunFuzzPass(in, out string) error {
 	iCtx.AstFile = astutil.Apply(iCtx.AstFile, p.GetPreApply(iCtx), p.GetPostApply(iCtx)).(*ast.File)
 	p.After(iCtx)
 
-	DumpAstFile(iCtx.FS, iCtx.AstFile, out)
+	inst.DumpAstFile(iCtx.FS, iCtx.AstFile, out)
+	if gofmt.HasSyntaxError(out) {
+		err = ioutil.WriteFile(out, iCtx.OriginalContent, 0777)
+		if err != nil {
+			log.Panicf("failed to recover file '%s'", out)
+		}
+		// do_retry(out, out, wp)
+	}
 	return nil
 }
 
-type fuzzPass struct {
+type FuzzPass struct {
 }
 
 var (
@@ -32,17 +42,17 @@ var (
 	FuzzImportPath = "toolkit/pkg/sched"
 )
 
-func (p *fuzzPass) Before(ctx *InstContext) {
-	ctx.SetMetadata(NeedInst, false)
+func (p *FuzzPass) Before(ctx *inst.InstContext) {
+	ctx.SetMetadata(FuzzNeedInst, false)
 }
 
-func (p *fuzzPass) After(ctx *InstContext) {
-	if v, ok := ctx.GetMetadata(NeedInst); ok && v.(bool) {
-		AddImport(ctx.FS, ctx.AstFile, ImportName, ImportPath)
+func (p *FuzzPass) After(ctx *inst.InstContext) {
+	if v, ok := ctx.GetMetadata(FuzzNeedInst); ok && v.(bool) {
+		inst.AddImport(ctx.FS, ctx.AstFile, FuzzImportName, FuzzImportPath)
 	}
 }
 
-func (p *fuzzPass) GetPreApply(iCtx *InstContext) func(*astutil.Cursor) bool {
+func (p *FuzzPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bool {
 	return func(c *astutil.Cursor) bool {
 		defer func() {
 			if r := recover(); r != nil { // This is allowed. If we insert node into nodes not in slice, we will meet a panic
@@ -79,13 +89,14 @@ func (p *fuzzPass) GetPreApply(iCtx *InstContext) func(*astutil.Cursor) bool {
 				testfunc := concrete
 				fuzzDecl := genFuzzDecl(testname, testfunc)
 				iCtx.AstFile.Decls = append(iCtx.AstFile.Decls, fuzzDecl)
+				iCtx.SetMetadata(FuzzNeedInst, true)
 			}
 		}
 		return true
 	}
 }
 
-func (p *fuzzPass) GetPostApply(iCtx *InstContext) func(*astutil.Cursor) bool {
+func (p *FuzzPass) GetPostApply(iCtx *inst.InstContext) func(*astutil.Cursor) bool {
 	return nil
 }
 

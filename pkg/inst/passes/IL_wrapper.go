@@ -1,63 +1,16 @@
-package IL
+package passes
 
 import (
 	"go/ast"
 	"golang.org/x/tools/go/ast/astutil"
-	"io/ioutil"
-	"log"
 	"toolkit/pkg/inst"
-	"toolkit/pkg/utils/gofmt"
 )
-
-func do_retry(in, out string, wp *ILWrapperPass) error {
-	p := wp
-	iCtx, err := inst.NewInstContext(in)
-	if err != nil {
-		log.Fatalf("Analysis source code failed %v", err)
-	}
-	p.Before(iCtx)
-	iCtx.AstFile = astutil.Apply(iCtx.AstFile, p.GetPreApply(iCtx), p.GetPostApply(iCtx)).(*ast.File)
-	p.After(iCtx)
-
-	inst.DumpAstFile(iCtx.FS, iCtx.AstFile, out)
-	if gofmt.HasSyntaxError(out) {
-		err = ioutil.WriteFile(out, iCtx.OriginalContent, 0777)
-		if err != nil {
-			log.Panicf("failed to recover file '%s'", out)
-		}
-		log.Printf("recovered '%s' from syntax error\n", out)
-	}
-	return nil
-}
-
-func RunFLWrapperPass(in, out string, wp *ILWrapperPass) error {
-	p := wp
-	iCtx, err := inst.NewInstContext(in)
-	if err != nil {
-		log.Fatalf("Analysis source code failed %v", err)
-	}
-	p.Before(iCtx)
-	iCtx.AstFile = astutil.Apply(iCtx.AstFile, p.GetPreApply(iCtx), p.GetPostApply(iCtx)).(*ast.File)
-	p.After(iCtx)
-
-	inst.DumpAstFile(iCtx.FS, iCtx.AstFile, out)
-	if gofmt.HasSyntaxError(out) {
-		err = ioutil.WriteFile(out, iCtx.OriginalContent, 0777)
-		if err != nil {
-			log.Panicf("failed to recover file '%s'", out)
-		}
-		log.Printf("recovered '%s' from syntax error\n", out)
-		log.Printf("retry inst '%s'\n", out)
-		// do_retry(out, out, wp)
-	}
-	return nil
-}
 
 type ILWrapperPass struct {
 	FBefore func(iCtx *inst.InstContext, node ast.Node) *ast.ExprStmt
 	FAfter  func(iCtx *inst.InstContext, node ast.Node) *ast.ExprStmt
 	Dowrap  func(iCtx *inst.InstContext, node ast.Node) bool
-	inst.Import
+	Import
 }
 
 func (p *ILWrapperPass) Before(ctx *inst.InstContext) {

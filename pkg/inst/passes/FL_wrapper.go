@@ -1,4 +1,4 @@
-package FL
+package passes
 
 import (
 	"go/ast"
@@ -21,14 +21,20 @@ func RunFLWrapperPass(in, out string, wp *WrapperPass) error {
 	return nil
 }
 
+type Import struct {
+	Name string
+	Need string
+	Path string
+}
+
 type WrapperPass struct {
 	before *ast.Stmt
 	after  *ast.DeferStmt
 	dowrap func(node ast.Node) bool
-	inst.Import
+	Import
 }
 
-func NewWrapperPass(before *ast.Stmt, after *ast.DeferStmt, dowrap func(node ast.Node) bool, imp inst.Import) *WrapperPass {
+func NewWrapperPass(before *ast.Stmt, after *ast.DeferStmt, dowrap func(node ast.Node) bool, imp Import) *WrapperPass {
 	wp := &WrapperPass{
 		before: before,
 		after:  after,

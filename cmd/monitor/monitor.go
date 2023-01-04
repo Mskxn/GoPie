@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"toolkit/cmd"
-	"toolkit/pkg/passes"
+	"toolkit/pkg/inst/passes"
 )
 
 func main() {

@@ -1,5 +1,25 @@
 import os
 
+import os
+import sys
+import time
+import signal
+import subprocess
+
+import psutil
+from threading import Timer
+
+def kill(proc_pid):
+    parent_proc = psutil.Process(proc_pid)
+    for child_proc in parent_proc.children(recursive=True):
+        child_proc.kill()
+    parent_proc.kill()
+
+def execute_cmd(cmd, timeout=5, skip=False):
+    p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+    result = p.stdout.read()
+    return result
+
 path_list = [
     "./testdata/project/blocking/cockroach/10214/cockroach10214_test.go",
     "./testdata/project/blocking/cockroach/1055/cockroach1055_test.go",
@@ -70,18 +90,64 @@ path_list = [
     "./testdata/project/blocking/syncthing/4829/syncthing4829_test.go",
     "./testdata/project/blocking/syncthing/5795/syncthing5795_test.go",
 ]
-file_names = map(lambda x: x.split("/")[-1], path_list)
-fuzz_names = map(lambda x: "FuzzGen" + x.captialize(), map(lambda x: x.split("_test.go")[0], file_names))
 
-def inst_file(fn):
+# path_list = ["./testdata/project/blocking/cockroach/1055/cockroach1055_test.go"]
+
+file_names = list(map(lambda x: os.path.basename(x), path_list))
+dir_list = list(map(lambda x : os.path.dirname(x), path_list))
+fuzz_names = list(map(lambda x: "FuzzGen" + x.capitalize(), map(lambda x: x.split("_test.go")[0], file_names)))
+cwd = os.getcwd()
+
+def inst_file(fn,path):
+    os.chdir(path)
     print(f"handle {fn}", end="")
-    os.system(f"./sw.exe --file {fn}")
+    os.system(f"{cwd}\\bin\\go_build_toolkit_cmd_sw.exe --file {fn}")
     print("\tok")
+    os.chdir(cwd)
 
-def fuzz_target(fname, fn):
-    print(f"test {fn}", end="")
-    os.system(f"go test -fuzz {fname}")
-    print("ok")
+def fuzz_target(dn, fn):
+    cmd = f"go test toolkit{dn[1:]} -fuzz ^\Q{fn}\E$ -run ^$"
+    #print(cmd)
+    res = execute_cmd(cmd)
+    return res
 
-for fn in path_list:
-    inst_file(fn)
+def fuzz_all():
+    check_cnt = 0
+    for dn, fuzz_name in zip(dir_list, fuzz_names):
+        print(f"test {fuzz_name}", end="", flush=True)
+        bound = 5
+        while True:
+            if bound == 0:
+                print(f"\t ok", flush=True)
+                break
+            res = fuzz_target(dn, fuzz_name)
+            res = res.splitlines()
+            if len(res) == 0:
+                bound -= 1
+                continue
+            elif "FAIL" in str(res[-1]):
+                print(f"\t fail", flush=True)
+                check_cnt += 1
+                break
+            else:
+                print(res)
+                bound -= 1
+                continue
+    print(f"total\t:\t{len(path_list)}")
+    print(f"fail\t:\t{check_cnt}")
+
+def inst_all():
+    for i in range(len(path_list)):
+        inst_file(file_names[i], dir_list[i])
+
+def test_fuzz():
+        cmd = f"go test {dn} -fuzz ^\Q{fn}\E$ -run ^$"
+        print(cmd)
+        p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        res = p.stdout.read()
+        print(res)
+
+if __name__ == "__main__":
+    #inst_all()
+    fuzz_all()
+    #test_fuzz()
