@@ -6,7 +6,6 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 	"io/ioutil"
 	"log"
-	"strconv"
 	"toolkit/pkg/inst"
 	"toolkit/pkg/sched"
 	"toolkit/pkg/utils/gofmt"
@@ -76,28 +75,12 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 			id := iCtx.GetNewOpId()
 			Add(concrete.Pos(), id)
 			e := uint64(sched.W_RECV)
-
-			before := NewArgCallExpr("sched", "WE", []ast.Expr{&ast.BasicLit{
-				ValuePos: 0,
-				Kind:     token.INT,
-				Value:    strconv.FormatUint(id, 10),
-			}, &ast.BasicLit{
-				ValuePos: 0,
-				Kind:     token.INT,
-				Value:    strconv.FormatUint(e, 10),
-			}})
+			ch := concrete.Chan
+			before := GenInstCall("InstChBF", ch, id, e)
 			c.InsertBefore(before)
 
 			e = sched.S_SEND
-			after := NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-				ValuePos: 0,
-				Kind:     token.INT,
-				Value:    strconv.FormatUint(id, 10),
-			}, &ast.BasicLit{
-				ValuePos: 0,
-				Kind:     token.INT,
-				Value:    strconv.FormatUint(e, 10),
-			}})
+			after := GenInstCall("InstChAF", ch, id, e)
 			c.InsertAfter(after)
 
 			iCtx.SetMetadata(ChannelNeedInst, true)
@@ -108,31 +91,14 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 				if unaryExpr.Op == token.ARROW { // This is a receive operation
 					id := iCtx.GetNewOpId()
 					Add(concrete.Pos(), id)
+					ch := unaryExpr.X
 					e := uint64(sched.W_SEND)
-
-					before := NewArgCallExpr("sched", "WE", []ast.Expr{&ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(id, 10),
-					}, &ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(e, 10),
-					}})
+					before := GenInstCall("InstChBF", ch, id, e)
 					c.InsertBefore(before)
 
 					e = sched.S_RECV
-					after := NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(id, 10),
-					}, &ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(e, 10),
-					}})
+					after := GenInstCall("InstChAF", ch, id, e)
 					c.InsertAfter(after)
-
 					iCtx.SetMetadata(ChannelNeedInst, true)
 				}
 			} else if callExpr, ok := concrete.X.(*ast.CallExpr); ok { // like `close(ch)` or `mu.Lock()`
@@ -141,37 +107,64 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 					if funcIdent.Name == "close" {
 						id := iCtx.GetNewOpId()
 						Add(concrete.Pos(), id)
-						e := uint64(sched.W_CLOSE)
+						args := callExpr.Args
+						if len(args) == 1 {
+							if ch, ok := args[0].(*ast.Ident); ok {
+								e := uint64(sched.W_CLOSE)
 
-						before := NewArgCallExpr("sched", "WE", []ast.Expr{&ast.BasicLit{
-							ValuePos: 0,
-							Kind:     token.INT,
-							Value:    strconv.FormatUint(id, 10),
-						}, &ast.BasicLit{
-							ValuePos: 0,
-							Kind:     token.INT,
-							Value:    strconv.FormatUint(e, 10),
-						}})
-						c.InsertBefore(before)
+								before := GenInstCall("InstChBF", ch, id, e)
+								c.InsertBefore(before)
 
-						e = sched.S_CLOSE
-						after := NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-							ValuePos: 0,
-							Kind:     token.INT,
-							Value:    strconv.FormatUint(id, 10),
-						}, &ast.BasicLit{
-							ValuePos: 0,
-							Kind:     token.INT,
-							Value:    strconv.FormatUint(e, 10),
-						}})
-						c.InsertAfter(after)
+								e = sched.S_CLOSE
+								after := GenInstCall("InstChAF", ch, id, e)
+								c.InsertAfter(after)
 
-						iCtx.SetMetadata(ChannelNeedInst, true)
+								iCtx.SetMetadata(ChannelNeedInst, true)
+							}
+						}
 					}
 				}
 			}
-		}
+		case *ast.DeferStmt:
+			callExpr := concrete.Call
+			if funcIdent, ok := callExpr.Fun.(*ast.Ident); ok { // like `close(ch)`
+				// channel close operation
+				if funcIdent.Name == "close" {
+					id := iCtx.GetNewOpId()
+					Add(concrete.Pos(), id)
+					args := callExpr.Args
+					if len(args) == 1 {
+						if ch, ok := args[0].(*ast.Ident); ok {
+							e := uint64(sched.W_CLOSE)
+							before := GenInstCall("InstChBF", ch, id, e)
 
+							e = sched.S_CLOSE
+							after := GenInstCall("InstChAF", ch, id, e)
+
+							body := &ast.BlockStmt{List: []ast.Stmt{
+								before,
+								NewArgCallExpr("", "close", callExpr.Args),
+								after,
+							}}
+
+							deferStmt := &ast.DeferStmt{
+								Call: &ast.CallExpr{
+									Fun: &ast.FuncLit{
+										Type: &ast.FuncType{Params: &ast.FieldList{List: nil}},
+										Body: body,
+									},
+									Args: []ast.Expr{},
+								},
+							}
+
+							c.Replace(deferStmt)
+							iCtx.SetMetadata(ChannelNeedInst, true)
+						}
+					}
+				}
+			}
+			return false
+		}
 		return true
 	}
 }

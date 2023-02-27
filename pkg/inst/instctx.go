@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"io/ioutil"
 	"log"
+	"toolkit/pkg/utils/hash"
 )
 
 // NewInstContext creates a InstContext by given Golang source file
@@ -43,5 +44,6 @@ func NewInstContext(goSrcFile string) (*InstContext, error) {
 		Type:            info,
 		AstFile:         astF,
 		Metadata:        make(map[string]interface{}),
+		opid:            uint64(hash.Hash32(goSrcFile)) << 32, // add prefix to get a global unique id
 	}, nil
 }

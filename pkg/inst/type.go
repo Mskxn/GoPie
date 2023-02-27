@@ -19,6 +19,7 @@ type InstContext struct {
 	opid            uint64
 }
 
+// TODO : change this opid to a global one which is used to do something cross-file
 func (i *InstContext) GetNewOpId() uint64 {
 	return atomic.AddUint64(&i.opid, 1)
 }

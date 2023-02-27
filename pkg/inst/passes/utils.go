@@ -3,6 +3,7 @@ package passes
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 	"strings"
 	"toolkit/pkg/inst"
 
@@ -56,12 +57,6 @@ func NewDeferExpr(strPkg, strCallee string, vecExprArg []ast.Expr) *ast.DeferStm
 	newExpr := &ast.DeferStmt{Call: newCall}
 	return newExpr
 }
-
-var (
-	TraceImportPath = "toolkit/pkg/trace"
-	TraceImportName = "trace"
-	IDName          = "trace_goroutine_id_xxx"
-)
 
 func getSelectorCallerType(iCtx *inst.InstContext, selExpr *ast.SelectorExpr) string {
 	if callerIdent, ok := selExpr.X.(*ast.Ident); ok {
@@ -134,4 +129,17 @@ func IsTestFunc(n ast.Node) bool {
 	default:
 		return false
 	}
+}
+
+func GenInstCall(f string, ch ast.Expr, id uint64, e uint64) *ast.ExprStmt {
+	return NewArgCallExpr("sched", f, []ast.Expr{&ast.BasicLit{
+		ValuePos: 0,
+		Kind:     token.INT,
+		Value:    strconv.FormatUint(id, 10),
+	}, &ast.BasicLit{
+		ValuePos: 0,
+		Kind:     token.INT,
+		Value:    strconv.FormatUint(e, 10),
+	}, ch,
+	})
 }

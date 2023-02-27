@@ -4,7 +4,6 @@ import (
 	"go/ast"
 	"go/token"
 	"golang.org/x/tools/go/ast/astutil"
-	"strconv"
 	"toolkit/pkg/inst"
 	"toolkit/pkg/sched"
 )
@@ -49,48 +48,102 @@ func (p *LockPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) boo
 					if SelectorCallerHasTypes(iCtx, selectorExpr, true, "sync.Mutex", "*sync.Mutex", "sync.RWMutex", "*sync.RWMutex") {
 						var matched bool = true
 						var e uint64
+						var e2 uint64
 						switch selectorExpr.Sel.Name {
 						case "Lock":
 							e = sched.S_LOCK
+							e2 = sched.W_LOCK
 						case "RLock":
 							e = sched.S_RLOCK
+							e2 = sched.W_LOCK
 						case "RUnlock":
 							e = sched.S_RUNLOCK
+							e2 = sched.W_UNLOCK
 						case "Unlock":
 							e = sched.S_UNLOCK
+							e2 = sched.W_UNLOCK
 						default:
 							matched = false
 							e = 0
+							e2 = 0
 						}
 
 						if matched {
 							id := iCtx.GetNewOpId()
 							Add(concrete.Pos(), id)
-							newCall := NewArgCallExpr("sched", "WE", []ast.Expr{&ast.BasicLit{
-								ValuePos: 0,
-								Kind:     token.INT,
-								Value:    strconv.FormatUint(id, 10),
-							}, &ast.BasicLit{
-								ValuePos: 0,
-								Kind:     token.INT,
-								Value:    strconv.FormatUint(e, 10),
-							}})
-							c.InsertBefore(newCall)
-							newCall = NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-								ValuePos: 0,
-								Kind:     token.INT,
-								Value:    strconv.FormatUint(id, 10),
-							}, &ast.BasicLit{
-								ValuePos: 0,
-								Kind:     token.INT,
-								Value:    strconv.FormatUint(e, 10),
-							}})
-							c.InsertAfter(newCall)
+							mu := selectorExpr.X
+							p_mu := &ast.UnaryExpr{
+								Op: token.AND,
+								X:  mu,
+							}
+							before := GenInstCall("InstMutexBF", p_mu, id, e)
+							c.InsertBefore(before)
+							after := GenInstCall("InstMutexAF", p_mu, id, e2)
+							c.InsertAfter(after)
 							iCtx.SetMetadata(LockNeedInst, true)
 						}
 					}
 				}
 			}
+		case *ast.DeferStmt:
+			callExpr := concrete.Call
+			if selectorExpr, ok := callExpr.Fun.(*ast.SelectorExpr); ok { // like `mu.Lock()`
+				if SelectorCallerHasTypes(iCtx, selectorExpr, true, "sync.Mutex", "*sync.Mutex", "sync.RWMutex", "*sync.RWMutex") {
+					var matched bool = true
+					var e uint64
+					var e2 uint64
+					switch selectorExpr.Sel.Name {
+					case "Lock":
+						e = sched.S_LOCK
+						e2 = sched.W_LOCK
+					case "RLock":
+						e = sched.S_RLOCK
+						e2 = sched.W_LOCK
+					case "RUnlock":
+						e = sched.S_RUNLOCK
+						e2 = sched.W_UNLOCK
+					case "Unlock":
+						e = sched.S_UNLOCK
+						e2 = sched.W_UNLOCK
+					default:
+						matched = false
+						e = 0
+						e2 = 0
+					}
+
+					if matched {
+						id := iCtx.GetNewOpId()
+						Add(concrete.Pos(), id)
+
+						mu := selectorExpr.X
+						p_mu := &ast.UnaryExpr{
+							Op: token.AND,
+							X:  mu,
+						}
+						before := GenInstCall("InstMutexBF", p_mu, id, e)
+						after := GenInstCall("InstMutexAF", p_mu, id, e2)
+
+						body := &ast.BlockStmt{List: []ast.Stmt{
+							before,
+							&ast.ExprStmt{callExpr},
+							after,
+						}}
+
+						deferStmt := &ast.DeferStmt{
+							Call: &ast.CallExpr{
+								Fun: &ast.FuncLit{
+									Type: &ast.FuncType{Params: &ast.FieldList{List: nil}},
+									Body: body,
+								},
+								Args: []ast.Expr{},
+							},
+						}
+						c.Replace(deferStmt)
+						iCtx.SetMetadata(LockNeedInst, true)
+					}
+				}
+			}
+			return false
 		}
 		return true
 	}
