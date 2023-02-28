@@ -31,6 +31,7 @@ const (
 )
 
 var gid uint64
+var gcid uint64
 
 type hchan struct {
 	qcount   uint           // total data in the queue
@@ -43,6 +44,8 @@ type hchan struct {
 	recvx    uint   // receive index
 	recvq    waitq  // list of recv waiters
 	sendq    waitq  // list of send waiters
+
+	cid uint64
 
 	// lock protects all fields in hchan, as well as several
 	// fields in sudogs blocked on this channel.
@@ -113,8 +116,9 @@ func makechan(t *chantype, size int) *hchan {
 	c.elemtype = elem
 	c.dataqsiz = uint(size)
 	lockInit(&c.lock, lockRankHchan)
+	c.cid = atomic.Xadd64(&gcid, 1)
 	if debugChan {
-		print("[FBSDK] makechan: chan=", c, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "\n")
+		print("[FBSDK] makechan: chan=", c.cid, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "\n")
 	}
 	return c
 }
@@ -190,7 +194,7 @@ func chansend(c *hchan, ep unsafe.Pointer, block bool, callerpc uintptr) bool {
 
 	defer func() {
 		if debugChan {
-			print("[FBSDK] chansend: chan=", c, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "; qcount=", c.qcount, "; gid=", getg().goid, "\n")
+			print("[FBSDK] chansend: chan=", c.cid, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "; qcount=", c.qcount, "; gid=", getg().goid, "\n")
 		}
 	}()
 
@@ -365,7 +369,7 @@ func closechan(c *hchan) {
 
 	defer func() {
 		if debugChan {
-			print("[FBSDK] chanclose: chan=", c, "; gid=", getg().goid, "\n")
+			print("[FBSDK] chanclose: chan=", c.cid, "; gid=", getg().goid, "\n")
 		}
 	}()
 	lock(&c.lock)
@@ -477,7 +481,7 @@ func chanrecv(c *hchan, ep unsafe.Pointer, block bool) (selected, received bool)
 
 	defer func() {
 		if debugChan {
-			print("[FBSDK] makechan: chan=", c, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "; qcount=", c.qcount, "; gid=", getg().goid, "\n")
+			print("[FBSDK] chanrecv: chan=", c.cid, "; elemsize=", c.elemsize, "; dataqsiz=", c.dataqsiz, "; qcount=", c.qcount, "; gid=", getg().goid, "\n")
 		}
 	}()
 

@@ -34,7 +34,10 @@ func fatal(string)
 type Mutex struct {
 	state int32
 	sema  uint32
+	mid   uint64
 }
+
+var gmid uint64 = 1<<32
 
 // A Locker represents an object that can be locked and unlocked.
 type Locker interface {
@@ -79,6 +82,13 @@ const (
 
 func (m *Mutex) IsLocked() bool {
 	return atomic.LoadInt32(&m.state) == mutexLocked
+}
+
+func (m *Mutex) ID() uint64 {
+	if m.mid & 0xffffffff == 0 {
+		m.mid = atomic.AddUint64(&gmid, 1)
+	}
+	return m.mid
 }
 
 // Lock locks m.
