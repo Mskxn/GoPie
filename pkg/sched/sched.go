@@ -140,7 +140,7 @@ func InstChAF[T any](id uint64, e uint32, o chan T) {
 	atomic.StoreUint32(&event, evt)
 }
 
-func InstMutexBF(id uint64, e uint32, o *sync.Mutex) {
+func InstMutexBF(id uint64, e uint32, o any) {
 	if debugSched {
 		// print("mutex: ", &o, "; id :", id, ";\n")
 	}
@@ -161,15 +161,25 @@ func InstMutexBF(id uint64, e uint32, o *sync.Mutex) {
 	}
 }
 
-func InstMutexAF(id uint64, e uint32, o *sync.Mutex) {
+func InstMutexAF(id uint64, e uint32, o any) {
 	if debugSched {
 		var islocked int
-		if o.IsLocked() {
+		var locked bool
+		var mid uint64
+		switch mu := o.(type) {
+		case *sync.Mutex:
+			locked = mu.IsLocked()
+			mid = mu.ID()
+		case *sync.RWMutex:
+			locked = mu.IsLocked()
+			mid = mu.ID()
+		}
+		if locked {
 			islocked = 1
 		} else {
 			islocked = 0
 		}
-		print("[FB] mutex: obj=", &o, "; id=", id, "; locked=", islocked, "; gid=", runtime.Goid(), "\n")
+		print("[FB] mutex: obj=", mid, "; id=", id, "; locked=", islocked, "; gid=", runtime.Goid(), "\n")
 	}
 	mid := idmap.get(id)
 	if istraced&(1<<mid) != 0 {
@@ -195,7 +205,9 @@ func Leakcheck(t *testing.T) {
 		goleak.IgnoreTopFunction("testing.runFuzzing"),
 		goleak.IgnoreTopFunction("os/signal.NotifyContext.func1"),
 		goleak.IgnoreTopFunction("toolkit/pkg/sched.InstMutexBF"),
-		goleak.IgnoreTopFunction("toolkit/pkg/sched.InstChBF"),
+		goleak.IgnoreTopFunction("toolkit/pkg/sched.InstMutexAF"),
+		goleak.IgnoreTopFunction("toolkit/pkg/sched.InstChBF[...]"),
+		goleak.IgnoreTopFunction("toolkit/pkg/sched.InstChAF[...]"),
 		goleak.IgnoreTopFunction("go.uber.org/goleak/internal/stack.getStackBuffer"),
 	}
 	goleak.VerifyNone(t, opts...)
