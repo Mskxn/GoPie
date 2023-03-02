@@ -52,28 +52,28 @@ func (s *ObjectStatus) IsCritical() uint64 {
 }
 
 type OpAndStatus struct {
-	opid   uint64
-	oid    uint64
-	gid    uint64
-	typ    uint64
+	Opid   uint64
+	Oid    uint64
+	Gid    uint64
+	Typ    uint64
 	status ObjectStatus
 }
 
 func (ops *OpAndStatus) ToString() string {
 	var s string
-	switch ops.typ {
+	switch ops.Typ {
 	case Chanmake:
 		s = fmt.Sprintf("make(chan, %v)", ops.status.dataqsize)
 	case Chansend:
-		s = fmt.Sprintf("%v: v -> chan, (%v/%v)", ops.gid, ops.status.qcount, ops.status.dataqsize)
+		s = fmt.Sprintf("%v: v -> chan, (%v/%v)", ops.Gid, ops.status.qcount, ops.status.dataqsize)
 	case Chanrecv:
-		s = fmt.Sprintf("%v: <- chan, (%v/%v)", ops.gid, ops.status.qcount, ops.status.dataqsize)
+		s = fmt.Sprintf("%v: <- chan, (%v/%v)", ops.Gid, ops.status.qcount, ops.status.dataqsize)
 	case Chanclose:
-		s = fmt.Sprintf("%v: close(chan)", ops.gid)
+		s = fmt.Sprintf("%v: close(chan)", ops.Gid)
 	case Lock:
-		s = fmt.Sprintf("%v: mu.lock", ops.gid)
+		s = fmt.Sprintf("%v: mu.lock", ops.Gid)
 	case Unlock:
-		s = fmt.Sprintf("%v: mu.unlock", ops.gid)
+		s = fmt.Sprintf("%v: mu.unlock", ops.Gid)
 	default:
 	}
 	return s

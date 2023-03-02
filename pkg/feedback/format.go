@@ -3,7 +3,6 @@ package feedback
 import (
 	"strconv"
 	"strings"
-	"toolkit/pkg/fuzzer"
 )
 
 /*
@@ -67,31 +66,31 @@ func parseLine(s string) (bool, uint64, OpAndStatus) {
 			typ = Chanrecv
 		}
 		return true, values[0], OpAndStatus{
-			opid:   0,
-			oid:    values[0],
+			Opid:   0,
+			Oid:    values[0],
 			status: ObjectStatus{isCh: true, dataqsize: int(values[2]), qcount: int(values[3])},
-			gid:    values[4],
-			typ:    typ,
+			Gid:    values[4],
+			Typ:    typ,
 		}
 	case "[FBSDK] makechan":
 		return true, values[0], OpAndStatus{
-			opid:   0,
-			oid:    values[0],
+			Opid:   0,
+			Oid:    values[0],
 			status: ObjectStatus{isCh: true, dataqsize: int(values[2]), qcount: 0},
-			typ:    Chanmake,
+			Typ:    Chanmake,
 		}
 	case "[FBSDK] chanclose":
 		return true, values[0], OpAndStatus{
-			opid:   0,
-			oid:    values[0],
+			Opid:   0,
+			Oid:    values[0],
 			status: ObjectStatus{isCh: true, closed: true},
-			gid:    values[1],
-			typ:    Chanclose,
+			Gid:    values[1],
+			Typ:    Chanclose,
 		}
 	case "[FB] chan":
 		return true, values[0], OpAndStatus{
-			opid:   values[1],
-			oid:    values[0],
+			Opid:   values[1],
+			Oid:    values[0],
 			status: ObjectStatus{isCh: true},
 		}
 	case "[FB] mutex":
@@ -103,11 +102,11 @@ func parseLine(s string) (bool, uint64, OpAndStatus) {
 			typ = Unlock
 		}
 		return true, values[0], OpAndStatus{
-			opid:   values[1],
-			oid:    values[0],
+			Opid:   values[1],
+			Oid:    values[0],
 			status: ObjectStatus{isCh: false, locked: islocked},
-			gid:    values[3],
-			typ:    typ,
+			Gid:    values[3],
+			Typ:    typ,
 		}
 	default:
 		return false, 0, OpAndStatus{}
@@ -152,7 +151,7 @@ func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 					if !ok || !ok2 || (oid != oid2 && !info.status.isCh) {
 						continue
 					}
-					info.opid = info2.opid
+					info.Opid = info2.Opid
 					add(oid, info)
 				}
 			}
@@ -163,15 +162,21 @@ func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 
 func Log2Cov(ops []OpAndStatus) Cov {
 	cov := NewCov()
+
 	l := len(ops)
 	for i := 0; i < l-1; i++ {
 		j := i + 1
-		cov.UpdateP("", *fuzzer.NewPair(ops[i].opid, ops[j].opid))
+		cov.UpdateO(ops[i].Opid, ops[j].Opid)
 	}
+
+	for i := 0; i < l; i++ {
+		cov.UpdateT(OpID(ops[i].Opid), ops[i].Typ)
+	}
+
 	for _, op := range ops {
 		status := op.status.IsCritical()
 		if status != 0 {
-			cov.UpdateC(OpID(op.opid), ToStatus(status))
+			cov.UpdateC(OpID(op.Opid), ToStatus(status))
 		}
 	}
 	return cov
@@ -195,6 +200,8 @@ func (f *Fragments) Root(x uint64) uint64 {
 		} else {
 			if v != x {
 				x = v
+			} else {
+				break
 			}
 		}
 	}
