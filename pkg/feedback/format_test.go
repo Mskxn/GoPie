@@ -40,25 +40,3 @@ func TestParseLog(t *testing.T) {
 		print("\n")
 	}
 }
-
-func TestLog2Cov(t *testing.T) {
-	_, orders := ParseLog(log)
-	cov := Log2Cov(orders)
-	print(cov.ToString())
-}
-
-func TestSRDOAnalysis(t *testing.T) {
-	res, _ := ParseLog(log)
-	ps := SRDOAnalysis(res)
-	for i, p := range ps {
-		print("[", i, "] ", p.ToString(), "\n")
-	}
-}
-
-func TestSODRAnalysis(t *testing.T) {
-	res, _ := ParseLog(log)
-	ps := SODRAnalysis(res)
-	for i, p := range ps {
-		print("[", i, "] ", p.ToString(), "\n")
-	}
-}
