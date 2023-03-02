@@ -103,13 +103,11 @@ func (c *Chain) merge(cc *Chain) {
 }
 
 type Corpus struct {
-	gm map[string]Chain
-	tm map[string]Pair
-	// store the orders of last or next op
-	orders map[uint64]map[uint64]struct{}
-	gmu    sync.RWMutex
-	tmu    sync.RWMutex
-	omu    sync.Mutex
+	gm  map[string]Chain
+	tm  map[string]Pair
+	gmu sync.RWMutex
+	tmu sync.RWMutex
+	omu sync.Mutex
 }
 
 var once sync.Once
@@ -119,7 +117,6 @@ func (cp *Corpus) Init() {
 	once.Do(func() {
 		GlobalCorpus.gm = make(map[string]Chain)
 		GlobalCorpus.tm = make(map[string]Pair)
-		GlobalCorpus.orders = make(map[uint64]map[uint64]struct{})
 	})
 }
 
@@ -159,26 +156,4 @@ func (cp *Corpus) TUpdate(e Pair) bool {
 	defer cp.tmu.Unlock()
 	cp.tm[e.ToString()] = e
 	return true
-}
-
-func (cp *Corpus) Next(opid uint64) []uint64 {
-	cp.omu.Lock()
-	defer cp.omu.Unlock()
-	if v, ok := cp.orders[opid]; ok {
-		res := make([]uint64, 0)
-		for k, _ := range v {
-			res = append(res, k)
-		}
-		return res
-	}
-	return nil
-}
-
-func (cp *Corpus) AddNext(opid uint64, next uint64) {
-	cp.omu.Lock()
-	defer cp.omu.Unlock()
-	if _, ok := cp.orders[opid]; !ok {
-		cp.orders[opid] = make(map[uint64]struct{})
-	}
-	cp.orders[opid][next] = struct{}{}
 }
