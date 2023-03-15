@@ -87,8 +87,16 @@ type Cov struct {
 
 var GlobalCov Cov
 
+func init() {
+	SetGlobalCov()
+}
+
 func SetGlobalCov() {
 	GlobalCov = NewCov()
+}
+
+func GetGlobalCov() *Cov {
+	return &GlobalCov
 }
 
 func NewCov() Cov {
