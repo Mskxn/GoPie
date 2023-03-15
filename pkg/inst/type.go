@@ -53,4 +53,6 @@ type InstPassConstructor func() InstPass
 type PassRegistry struct {
 	// pass name => pass
 	n2p map[string]InstPassConstructor
+	// orders
+	o []string
 }
