@@ -2,6 +2,7 @@ package fuzzer
 
 import (
 	"testing"
+	"toolkit/pkg/feedback"
 )
 
 /*
@@ -21,4 +22,8 @@ func TestFilter(t *testing.T) {
 
 func TestMutate(t *testing.T) {
 	// TODO
+}
+
+func TestMutateG(t *testing.T) {
+	feedback.SetGlobalCov()
 }
