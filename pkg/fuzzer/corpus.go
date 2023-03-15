@@ -1,37 +1,20 @@
 package fuzzer
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
+	"toolkit/pkg"
 )
 
-type Entry struct {
-	Opid uint64
-}
-
-type Pair struct {
-	Prev Entry
-	Next Entry
-}
-
-func (e *Pair) ToString() string {
-	return fmt.Sprintf("(%v, %v)", e.Prev, e.Next)
-}
-
-func NewPair(op1, op2 uint64) *Pair {
-	return &Pair{
-		Prev: Entry{op1},
-		Next: Entry{op2},
-	}
-}
-
 type Chain struct {
-	item []*Pair
+	item []*pkg.Pair
 }
 
 func (c *Chain) Copy() *Chain {
-	res := Chain{item: []*Pair{}}
+	res := Chain{item: []*pkg.Pair{}}
+	if c == nil {
+		return &res
+	}
 	for _, p := range c.item {
 		res.add(p)
 	}
@@ -40,19 +23,34 @@ func (c *Chain) Copy() *Chain {
 
 func (c *Chain) ToString() string {
 	res := ""
+	if c == nil {
+		return res
+	}
+	if c.item == nil {
+		return res
+	}
 	for _, e := range c.item {
+		if e == nil {
+			continue
+		}
 		res += e.ToString()
 	}
 	return res
 }
 
-func NewChain(g *Chain, t *Pair) *Chain {
-	nc := *g
+func NewChain(g *Chain, t *pkg.Pair) *Chain {
+	if g == nil && t == nil {
+		return nil
+	}
+	nc := g.Copy()
 	nc.add(t)
-	return &nc
+	return nc
 }
 
 func (c *Chain) Len() int {
+	if c == nil {
+		return 0
+	}
 	return len(c.item)
 }
 
@@ -63,14 +61,14 @@ func (c *Chain) G() *Chain {
 	return &Chain{c.item[0 : len(c.item)-1]}
 }
 
-func (c *Chain) T() *Pair {
+func (c *Chain) T() *pkg.Pair {
 	if c.Len() == 0 {
 		return nil
 	}
 	return c.item[len(c.item)-1]
 }
 
-func (c *Chain) pop() *Pair {
+func (c *Chain) pop() *pkg.Pair {
 	if c.Len() == 0 {
 		return nil
 	}
@@ -79,7 +77,7 @@ func (c *Chain) pop() *Pair {
 	return last
 }
 
-func (c *Chain) add(e *Pair) {
+func (c *Chain) add(e *pkg.Pair) {
 	c.item = append(c.item, e)
 }
 
@@ -103,24 +101,45 @@ func (c *Chain) merge(cc *Chain) {
 }
 
 type Corpus struct {
-	gm  map[string]Chain
-	tm  map[string]Pair
-	gmu sync.RWMutex
-	tmu sync.RWMutex
-	omu sync.Mutex
+	gm   map[string]*Chain
+	tm   map[string]*pkg.Pair
+	hash sync.Map
+	gmu  sync.RWMutex
+	tmu  sync.RWMutex
 }
 
 var once sync.Once
 var GlobalCorpus Corpus
 
+func init() {
+	GlobalCorpus = Corpus{}
+	GlobalCorpus.Init()
+}
+
 func (cp *Corpus) Init() {
 	once.Do(func() {
-		GlobalCorpus.gm = make(map[string]Chain)
-		GlobalCorpus.tm = make(map[string]Pair)
+		GlobalCorpus.gm = make(map[string]*Chain)
+		GlobalCorpus.tm = make(map[string]*pkg.Pair)
 	})
 }
 
-func (cp *Corpus) GExist(chain Chain) bool {
+func (cp *Corpus) Get() *Chain {
+	// TODO
+	for _, v := range cp.gm {
+		for _, vv := range cp.tm {
+			c := NewChain(v, vv)
+			if _, ok := cp.hash.LoadOrStore(c.ToString(), struct{}{}); !ok {
+				return c
+			}
+		}
+	}
+	return NewChain(nil, nil)
+}
+
+func (cp *Corpus) GExist(chain *Chain) bool {
+	if chain == nil {
+		return false
+	}
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
 	if _, ok := cp.gm[chain.ToString()]; ok {
@@ -129,7 +148,10 @@ func (cp *Corpus) GExist(chain Chain) bool {
 	return false
 }
 
-func (cp *Corpus) TExist(e Pair) bool {
+func (cp *Corpus) TExist(e *pkg.Pair) bool {
+	if e == nil {
+		return false
+	}
 	cp.tmu.RLock()
 	defer cp.tmu.RUnlock()
 	if _, ok := cp.tm[e.ToString()]; ok {
@@ -138,7 +160,7 @@ func (cp *Corpus) TExist(e Pair) bool {
 	return false
 }
 
-func (cp *Corpus) GUpdate(chain Chain) bool {
+func (cp *Corpus) GUpdate(chain *Chain) bool {
 	if cp.GExist(chain) {
 		return false
 	}
@@ -148,7 +170,7 @@ func (cp *Corpus) GUpdate(chain Chain) bool {
 	return true
 }
 
-func (cp *Corpus) TUpdate(e Pair) bool {
+func (cp *Corpus) TUpdate(e *pkg.Pair) bool {
 	if cp.TExist(e) {
 		return false
 	}
@@ -156,4 +178,31 @@ func (cp *Corpus) TUpdate(e Pair) bool {
 	defer cp.tmu.Unlock()
 	cp.tm[e.ToString()] = e
 	return true
+}
+
+func (cp *Corpus) Update(chs []*Chain) bool {
+	ok := false
+	for _, c := range chs {
+		if cp.GUpdate(c.G()) {
+			ok = true
+		}
+		if cp.TUpdate(c.T()) {
+			ok = true
+		}
+	}
+	return ok
+}
+
+func (cp *Corpus) UpdateSeed(seeds []*pkg.Pair) {
+	chs := make([]*Chain, 0)
+	for _, seed := range seeds {
+		chs = append(chs, &Chain{
+			item: []*pkg.Pair{seed, seed},
+		})
+	}
+	cp.Update(chs)
+}
+
+func GetGlobalCorpus() *Corpus {
+	return &GlobalCorpus
 }
