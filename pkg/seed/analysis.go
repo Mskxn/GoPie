@@ -1,24 +1,24 @@
 package seed
 
 import (
+	"toolkit/pkg"
 	"toolkit/pkg/feedback"
-	"toolkit/pkg/fuzzer"
 )
 
-func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []fuzzer.Pair {
+func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	//Same object operated in different routines
-	res := make([]fuzzer.Pair, 0)
+	res := make([]*pkg.Pair, 0)
 	for _, l := range m {
 		size := len(l)
 		for i := 0; i < size; i++ {
 			for j := i + 1; j < size; j++ {
 				if l[i].Gid != l[j].Gid {
 					// Do not need to do a reverse, mutator can do it.
-					res = append(res, fuzzer.Pair{
-						Prev: fuzzer.Entry{
+					res = append(res, &pkg.Pair{
+						Prev: pkg.Entry{
 							Opid: l[i].Opid,
 						},
-						Next: fuzzer.Entry{
+						Next: pkg.Entry{
 							Opid: l[j].Opid,
 						},
 					})
@@ -29,9 +29,9 @@ func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []fuzzer.Pair {
 	return res
 }
 
-func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []fuzzer.Pair {
+func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	//Same routine operate different objects
-	visit := make(map[string]fuzzer.Pair, 0)
+	visit := make(map[string]*pkg.Pair, 0)
 
 	// switch to routine view
 	m2 := make(map[uint64][]feedback.OpAndStatus)
@@ -60,11 +60,11 @@ func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []fuzzer.Pair {
 							for i, op1 := range l1 {
 								for j, op2 := range l2 {
 									if op1.Gid != op2.Gid {
-										p := fuzzer.Pair{
-											Prev: fuzzer.Entry{
+										p := &pkg.Pair{
+											Prev: pkg.Entry{
 												Opid: l[i].Opid,
 											},
-											Next: fuzzer.Entry{
+											Next: pkg.Entry{
 												Opid: l[j].Opid,
 											},
 										}
@@ -79,7 +79,7 @@ func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []fuzzer.Pair {
 		}
 	}
 
-	res := make([]fuzzer.Pair, 0)
+	res := make([]*pkg.Pair, 0)
 	for _, v := range visit {
 		res = append(res, v)
 	}
