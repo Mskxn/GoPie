@@ -2,13 +2,10 @@ package passes
 
 import (
 	"go/ast"
-	"go/token"
 	"golang.org/x/tools/go/ast/astutil"
 	"io/ioutil"
 	"log"
-	"strconv"
 	"toolkit/pkg/inst"
-	"toolkit/pkg/sched"
 	"toolkit/pkg/utils/gofmt"
 )
 
@@ -79,34 +76,33 @@ func (p *SelectPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) b
 					return true
 				}
 				comm, _ := x.(*ast.CommClause)
-				switch comm.Comm.(type) {
+				switch concrete := comm.Comm.(type) {
 				case *ast.ExprStmt: // recv
 					id := iCtx.GetNewOpId()
+					unaryExpr, _ := concrete.X.(*ast.UnaryExpr)
+					ch := unaryExpr.X
 					Add(concrete.Pos(), id)
-					e := uint64(sched.S_RECV)
-					newCall := NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(id, 10),
-					}, &ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(e, 10),
-					}})
+					newCall := GenInstCall("InstChAF", ch, id)
 					comm.Body = append([]ast.Stmt{newCall}, comm.Body...)
+				case *ast.AssignStmt:
+					id := iCtx.GetNewOpId()
+					var unaryExpr *ast.UnaryExpr
+					for _, rhs := range concrete.Rhs {
+						if v, ok := rhs.(*ast.UnaryExpr); ok {
+							unaryExpr = v
+						}
+					}
+					if unaryExpr != nil {
+						ch := unaryExpr.X
+						Add(concrete.Pos(), id)
+						newCall := GenInstCall("InstChAF", ch, id)
+						comm.Body = append([]ast.Stmt{newCall}, comm.Body...)
+					}
 				case *ast.SendStmt: // send
 					id := iCtx.GetNewOpId()
 					Add(concrete.Pos(), id)
-					e := uint64(sched.S_SEND)
-					newCall := NewArgCallExpr("sched", "SE", []ast.Expr{&ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(id, 10),
-					}, &ast.BasicLit{
-						ValuePos: 0,
-						Kind:     token.INT,
-						Value:    strconv.FormatUint(e, 10),
-					}})
+					ch := concrete.Chan
+					newCall := GenInstCall("InstChAF", ch, id)
 					comm.Body = append([]ast.Stmt{newCall}, comm.Body...)
 					iCtx.SetMetadata(SelectInstNeed, true)
 				}

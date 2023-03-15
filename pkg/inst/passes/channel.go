@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"toolkit/pkg/inst"
-	"toolkit/pkg/sched"
 	"toolkit/pkg/utils/gofmt"
 )
 
@@ -74,13 +73,10 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 		case *ast.SendStmt:
 			id := iCtx.GetNewOpId()
 			Add(concrete.Pos(), id)
-			e := uint64(sched.W_RECV)
 			ch := concrete.Chan
-			before := GenInstCall("InstChBF", ch, id, e)
+			before := GenInstCall("InstChBF", ch, id)
 			c.InsertBefore(before)
-
-			e = sched.S_SEND
-			after := GenInstCall("InstChAF", ch, id, e)
+			after := GenInstCall("InstChAF", ch, id)
 			c.InsertAfter(after)
 
 			iCtx.SetMetadata(ChannelNeedInst, true)
@@ -92,12 +88,10 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 					id := iCtx.GetNewOpId()
 					Add(concrete.Pos(), id)
 					ch := unaryExpr.X
-					e := uint64(sched.W_SEND)
-					before := GenInstCall("InstChBF", ch, id, e)
+					before := GenInstCall("InstChBF", ch, id)
 					c.InsertBefore(before)
 
-					e = sched.S_RECV
-					after := GenInstCall("InstChAF", ch, id, e)
+					after := GenInstCall("InstChAF", ch, id)
 					c.InsertAfter(after)
 					iCtx.SetMetadata(ChannelNeedInst, true)
 				}
@@ -110,13 +104,11 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 						args := callExpr.Args
 						if len(args) == 1 {
 							if ch, ok := args[0].(*ast.Ident); ok {
-								e := uint64(sched.W_CLOSE)
 
-								before := GenInstCall("InstChBF", ch, id, e)
+								before := GenInstCall("InstChBF", ch, id)
 								c.InsertBefore(before)
 
-								e = sched.S_CLOSE
-								after := GenInstCall("InstChAF", ch, id, e)
+								after := GenInstCall("InstChAF", ch, id)
 								c.InsertAfter(after)
 
 								iCtx.SetMetadata(ChannelNeedInst, true)
@@ -135,11 +127,8 @@ func (p *ChRecPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 					args := callExpr.Args
 					if len(args) == 1 {
 						if ch, ok := args[0].(*ast.Ident); ok {
-							e := uint64(sched.W_CLOSE)
-							before := GenInstCall("InstChBF", ch, id, e)
-
-							e = sched.S_CLOSE
-							after := GenInstCall("InstChAF", ch, id, e)
+							before := GenInstCall("InstChBF", ch, id)
+							after := GenInstCall("InstChAF", ch, id)
 
 							body := &ast.BlockStmt{List: []ast.Stmt{
 								before,

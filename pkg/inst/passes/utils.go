@@ -131,15 +131,11 @@ func IsTestFunc(n ast.Node) bool {
 	}
 }
 
-func GenInstCall(f string, ch ast.Expr, id uint64, e uint64) *ast.ExprStmt {
+func GenInstCall(f string, ch ast.Expr, id uint64) *ast.ExprStmt {
 	return NewArgCallExpr("sched", f, []ast.Expr{&ast.BasicLit{
 		ValuePos: 0,
 		Kind:     token.INT,
 		Value:    strconv.FormatUint(id, 10),
-	}, &ast.BasicLit{
-		ValuePos: 0,
-		Kind:     token.INT,
-		Value:    strconv.FormatUint(e, 10),
 	}, ch,
 	})
 }
