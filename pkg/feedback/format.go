@@ -59,8 +59,8 @@ func parseLine(s string) (bool, uint64, OpAndStatus) {
 	}
 	var typ uint64
 	switch head {
-	case "[FBSDK] Chansend", "[FBSDK] chanrecv":
-		if head == "[FBSDK] Chansend" {
+	case "[FBSDK] chansend", "[FBSDK] chanrecv":
+		if head == "[FBSDK] chansend" {
 			typ = Chansend
 		} else {
 			typ = Chanrecv
