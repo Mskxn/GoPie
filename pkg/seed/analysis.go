@@ -62,10 +62,10 @@ func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 									if op1.Gid != op2.Gid {
 										p := &pkg.Pair{
 											Prev: pkg.Entry{
-												Opid: l[i].Opid,
+												Opid: l1[i].Opid,
 											},
 											Next: pkg.Entry{
-												Opid: l[j].Opid,
+												Opid: l2[j].Opid,
 											},
 										}
 										visit[p.ToString()] = p
