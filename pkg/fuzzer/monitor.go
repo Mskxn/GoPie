@@ -2,22 +2,24 @@ package fuzzer
 
 import (
 	"log"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"toolkit/pkg/feedback"
 	"toolkit/pkg/seed"
 )
 
-const (
+var (
 	maxWorker   = 5
 	initTurnCnt = 10
-	singleCrash = true
 	maxFuzzCnt  = 1000
+	singleCrash = true
+	debug       = false
 )
 
-var runtimes int32
-
 type Monitor struct {
+	etimes int32
+	max    int32
 }
 
 type RunContext struct {
@@ -25,7 +27,10 @@ type RunContext struct {
 	Out Output
 }
 
-func (m *Monitor) Start(bin string, fn string) {
+func (m *Monitor) Start(bin string, fn string) (bool, []string) {
+	if m.max == int32(0) {
+		m.max = int32(maxFuzzCnt)
+	}
 	ch := make(chan RunContext, maxWorker)
 	cancel := make(chan struct{})
 
@@ -41,26 +46,24 @@ func (m *Monitor) Start(bin string, fn string) {
 				args: []string{"-test.v", "-test.run", fn},
 			}
 			o := e.Run(in)
-			atomic.AddInt32(&runtimes, 1)
+			atomic.AddInt32(&m.etimes, 1)
 			ch <- RunContext{In: in, Out: o}
 			select {
 			case <-cancel:
-				return
+				break
 			default:
 			}
 		}
 	}
 
-	wg.Add(maxWorker)
 	for i := 0; i < maxWorker; i++ {
 		go dowork()
 	}
 
 	for {
-		if runtimes > maxFuzzCnt {
+		if m.etimes > m.max {
 			close(cancel)
-			wg.Wait()
-			break
+			return false, []string{}
 		}
 		ctx := <-ch
 		var inputc string
@@ -69,19 +72,23 @@ func (m *Monitor) Start(bin string, fn string) {
 		} else {
 			inputc = "empty chain"
 		}
-		log.Printf("[WORKER] recv work : %s", inputc)
+		if debug {
+			log.Printf("[WORKER] recv work : %s", inputc)
+		}
 		// global corpus is not thread safe now
 		if ctx.Out.Err != nil {
-			log.Printf("[WORKER] find bug : \n %s", ctx.Out.O)
+			detail := []string{inputc, strconv.FormatInt(int64(atomic.LoadInt32(&m.etimes)), 10), ctx.Out.O}
+			if debug {
+				log.Println(inputc, detail[1])
+			}
 			if singleCrash {
 				close(cancel)
-				wg.Wait()
-				break
+				return true, detail
 			}
 		}
 		op_st, orders := feedback.ParseLog(ctx.Out.Trace)
 		cov := feedback.Log2Cov(orders)
-		if atomic.LoadInt32(&runtimes) < initTurnCnt {
+		if atomic.LoadInt32(&m.etimes) < int32(initTurnCnt) {
 			seeds := seed.SRDOAnalysis(op_st)
 			seeds = append(seeds, seed.SODRAnalysis(op_st)...)
 			GetGlobalCorpus().UpdateSeed(seeds)
