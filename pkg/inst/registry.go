@@ -3,6 +3,7 @@ package inst
 func NewPassRegistry() *PassRegistry {
 	return &PassRegistry{
 		n2p: make(map[string]InstPassConstructor),
+		o:   make([]string, 0),
 	}
 }
 
@@ -13,6 +14,7 @@ func (r *PassRegistry) Register(name string, passc InstPassConstructor) error {
 		return &PassExistedError{Name: name}
 	}
 	r.n2p[name] = passc
+	r.o = append(r.o, name)
 	return nil
 }
 
@@ -29,8 +31,10 @@ func (r *PassRegistry) GetNewPassInstance(name string) (InstPass, error) {
 func (r *PassRegistry) ListOfPassNames() []string {
 	passes := make([]string, 0, len(r.n2p))
 
-	for n, _ := range r.n2p {
-		passes = append(passes, n)
+	for _, n := range r.o {
+		if r.HasPass(n) {
+			passes = append(passes, n)
+		}
 	}
 	return passes
 }
