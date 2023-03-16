@@ -89,7 +89,7 @@ func SetTimeout(s int) {
 TODO : change the bitmap, to statisfy real project
 1. about fragment, we need a map to map id to its search space, if we want to use current fuzzer, the space should no bigger than 64
 */
-func InstChBF[T any](id uint64, o chan T) {
+func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 	sid := config.sender(id)
 	if sid == 0 {
 		return
