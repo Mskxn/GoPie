@@ -39,7 +39,7 @@ type TestPass struct {
 var (
 	TestNeedInst   = "NEED_TEST_INST"
 	TestImportName = "sched"
-	TestImportPath = "toolkit/pkg/sched"
+	TestImportPath = "sched"
 )
 
 func (p *TestPass) Before(ctx *inst.InstContext) {

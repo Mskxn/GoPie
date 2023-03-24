@@ -4,12 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"runtime"
 )
 
-func inst() {
+const (
+	localPath = "C:\\Users\\Msk\\GolandProjects\\toolkit\\bin\\go_build_toolkit_cmd_inst.exe"
+	linuxPath = "./bin/inst"
+)
+
+func Inst(paths []string) {
 	resCh := make(chan string, 100)
+	var toolpath = localPath
+	if runtime.GOOS == "linux" {
+		toolpath = linuxPath
+	}
 	dowork := func(path string) {
-		command := exec.Command("C:\\Users\\Msk\\GolandProjects\\toolkit\\bin\\go_build_toolkit_cmd_sw.exe", "--file", path)
+		command := exec.Command(toolpath, "--file", path)
 		var out, out2 bytes.Buffer
 		command.Stdout = &out
 		command.Stderr = &out2
@@ -21,15 +31,15 @@ func inst() {
 		}
 	}
 
-	all := len(InstPaths)
-	for _, p := range InstPaths {
+	all := len(paths)
+	for _, p := range paths {
 		go dowork(p)
 	}
 
 	for {
 		select {
 		case v := <-resCh:
-			fmt.Println(v)
+			fmt.Printf("[%v/%v]\t%s\n", len(paths)-all+1, len(paths), v)
 			all -= 1
 			if all == 0 {
 				return

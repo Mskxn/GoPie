@@ -2,6 +2,7 @@ package fuzzer
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 )
@@ -16,9 +17,11 @@ type Output struct {
 }
 
 type Input struct {
-	c    *Chain
-	cmd  string
-	args []string
+	c              *Chain
+	cmd            string
+	args           []string
+	timeout        int
+	recovertimeout int
 }
 
 func (e *Executor) Run(in Input) Output {
@@ -30,6 +33,12 @@ func (e *Executor) Run(in Input) Output {
 		instr = "Input=" + in.c.ToString()
 	}
 	command.Env = append(os.Environ(), instr)
+	if in.timeout != 0 {
+		command.Env = append(command.Env, fmt.Sprintf("TIMEOUT=%v", in.timeout))
+	}
+	if in.recovertimeout != 0 {
+		command.Env = append(command.Env, fmt.Sprintf("RECOVER_TIMEOUT=%v", in.recovertimeout))
+	}
 	//给标准输入以及标准错误初始化一个buffer，每条命令的输出位置可能是不一样的，
 	//比如有的命令会将输出放到stdout，有的放到stderr
 	command.Stdout = &bytes.Buffer{}

@@ -1,5 +1,11 @@
 package main
 
+import (
+	"bytes"
+	"os/exec"
+	"strings"
+)
+
 var Paths = []string{
 	"./testdata/project/blocking/cockroach/10214/cockroach10214_test.go",
 	"./testdata/project/blocking/cockroach/1055/cockroach1055_test.go",
@@ -69,6 +75,42 @@ var Paths = []string{
 	"./testdata/project/blocking/serving/2137/serving2137_test.go",
 	"./testdata/project/blocking/syncthing/4829/syncthing4829_test.go",
 	"./testdata/project/blocking/syncthing/5795/syncthing5795_test.go",
+
+	"./testdata/project/nonblocking/cockroach/35501/cockroach35501_test.go",
+	"./testdata/project/nonblocking/cockroach/4407/cockroach4407_test.go",
+	"./testdata/project/nonblocking/etcd/3077/etcd3077_test.go",
+	"./testdata/project/nonblocking/etcd/4876/etcd4876_test.go",
+	"./testdata/project/nonblocking/etcd/8194/etcd8194_test.go",
+	"./testdata/project/nonblocking/etcd/9446/etcd9446_test.go",
+	"./testdata/project/nonblocking/grpc/1687/grpc1687_test.go",
+	"./testdata/project/nonblocking/grpc/1748/grpc1748_test.go",
+	"./testdata/project/nonblocking/grpc/2371/grpc2371_test.go",
+	"./testdata/project/nonblocking/grpc/3090/grpc3090_test.go",
+	"./testdata/project/nonblocking/istio/16742/istio16742_test.go",
+	"./testdata/project/nonblocking/istio/8144/istio8144_test.go",
+	"./testdata/project/nonblocking/istio/8214/istio8214_test.go",
+	"./testdata/project/nonblocking/istio/8967/istio8967_test.go",
+	"./testdata/project/nonblocking/kubernetes/13058/kubernetes13058_test.go",
+	"./testdata/project/nonblocking/kubernetes/49404/kubernetes49404_test.go",
+	"./testdata/project/nonblocking/kubernetes/70892/kubernetes70892_test.go",
+	"./testdata/project/nonblocking/kubernetes/77796/kubernetes77796_test.go",
+	"./testdata/project/nonblocking/kubernetes/79631/kubernetes79631_test.go",
+	"./testdata/project/nonblocking/kubernetes/80284/kubernetes80284_test.go",
+	"./testdata/project/nonblocking/kubernetes/81091/kubernetes81091_test.go",
+	"./testdata/project/nonblocking/kubernetes/81148/kubernetes81148_test.go",
+	"./testdata/project/nonblocking/kubernetes/82239/kubernetes82239_test.go",
+	"./testdata/project/nonblocking/kubernetes/82550/kubernetes82550_test.go",
+	"./testdata/project/nonblocking/kubernetes/88331/kubernetes88331_test.go",
+	"./testdata/project/nonblocking/kubernetes/89164/kubernetes89164_test.go",
+	"./testdata/project/nonblocking/moby/18412/moby18412_test.go",
+	"./testdata/project/nonblocking/moby/22941/moby22941_test.go",
+	"./testdata/project/nonblocking/moby/27037/moby27037_test.go",
+	"./testdata/project/nonblocking/serving/3068/serving3068_test.go",
+	"./testdata/project/nonblocking/serving/3148/serving3148_test.go",
+	"./testdata/project/nonblocking/serving/4908/serving4908_test.go",
+	"./testdata/project/nonblocking/serving/5865/serving5865_test.go",
+	"./testdata/project/nonblocking/serving/6171/serving6171_test.go",
+	"./testdata/project/nonblocking/serving/6472/serving6472_test.go",
 }
 
 var InstPaths = []string{
@@ -140,9 +182,45 @@ var InstPaths = []string{
 	"./testdata/project/blocking_inst/serving/2137/serving2137_test.go",
 	"./testdata/project/blocking_inst/syncthing/4829/syncthing4829_test.go",
 	"./testdata/project/blocking_inst/syncthing/5795/syncthing5795_test.go",
+
+	"./testdata/project/nonblocking_inst/cockroach/35501/cockroach35501_test.go",
+	"./testdata/project/nonblocking_inst/cockroach/4407/cockroach4407_test.go",
+	"./testdata/project/nonblocking_inst/etcd/3077/etcd3077_test.go",
+	"./testdata/project/nonblocking_inst/etcd/4876/etcd4876_test.go",
+	"./testdata/project/nonblocking_inst/etcd/8194/etcd8194_test.go",
+	"./testdata/project/nonblocking_inst/etcd/9446/etcd9446_test.go",
+	"./testdata/project/nonblocking_inst/grpc/1687/grpc1687_test.go",
+	"./testdata/project/nonblocking_inst/grpc/1748/grpc1748_test.go",
+	"./testdata/project/nonblocking_inst/grpc/2371/grpc2371_test.go",
+	"./testdata/project/nonblocking_inst/grpc/3090/grpc3090_test.go",
+	"./testdata/project/nonblocking_inst/istio/16742/istio16742_test.go",
+	"./testdata/project/nonblocking_inst/istio/8144/istio8144_test.go",
+	"./testdata/project/nonblocking_inst/istio/8214/istio8214_test.go",
+	"./testdata/project/nonblocking_inst/istio/8967/istio8967_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/13058/kubernetes13058_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/49404/kubernetes49404_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/70892/kubernetes70892_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/77796/kubernetes77796_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/79631/kubernetes79631_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/80284/kubernetes80284_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/81091/kubernetes81091_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/81148/kubernetes81148_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/82239/kubernetes82239_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/82550/kubernetes82550_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/88331/kubernetes88331_test.go",
+	"./testdata/project/nonblocking_inst/kubernetes/89164/kubernetes89164_test.go",
+	"./testdata/project/nonblocking_inst/moby/18412/moby18412_test.go",
+	"./testdata/project/nonblocking_inst/moby/22941/moby22941_test.go",
+	"./testdata/project/nonblocking_inst/moby/27037/moby27037_test.go",
+	"./testdata/project/nonblocking_inst/serving/3068/serving3068_test.go",
+	"./testdata/project/nonblocking_inst/serving/3148/serving3148_test.go",
+	"./testdata/project/nonblocking_inst/serving/4908/serving4908_test.go",
+	"./testdata/project/nonblocking_inst/serving/5865/serving5865_test.go",
+	"./testdata/project/nonblocking_inst/serving/6171/serving6171_test.go",
+	"./testdata/project/nonblocking_inst/serving/6472/serving6472_test.go",
 }
 
-var Bins = []string{
+var TestBins = []string{
 	"./testdata/project/bins/cockroach10214.exe",
 	"./testdata/project/bins/cockroach1055.exe",
 	"./testdata/project/bins/cockroach10790.exe",
@@ -155,13 +233,17 @@ var Bins = []string{
 	"./testdata/project/bins/cockroach24808.exe",
 	"./testdata/project/bins/cockroach25456.exe",
 	"./testdata/project/bins/cockroach35073.exe",
+	"./testdata/project/bins/cockroach35501.exe",
 	"./testdata/project/bins/cockroach35931.exe",
 	"./testdata/project/bins/cockroach3710.exe",
+	"./testdata/project/bins/cockroach4407.exe",
 	"./testdata/project/bins/cockroach584.exe",
 	"./testdata/project/bins/cockroach6181.exe",
 	"./testdata/project/bins/cockroach7504.exe",
 	"./testdata/project/bins/cockroach9935.exe",
 	"./testdata/project/bins/etcd10492.exe",
+	"./testdata/project/bins/etcd3077.exe",
+	"./testdata/project/bins/etcd4876.exe",
 	"./testdata/project/bins/etcd5509.exe",
 	"./testdata/project/bins/etcd6708.exe",
 	"./testdata/project/bins/etcd6857.exe",
@@ -169,34 +251,59 @@ var Bins = []string{
 	"./testdata/project/bins/etcd7443.exe",
 	"./testdata/project/bins/etcd7492.exe",
 	"./testdata/project/bins/etcd7902.exe",
+	"./testdata/project/bins/etcd8194.exe",
+	"./testdata/project/bins/etcd9446.exe",
 	"./testdata/project/bins/grpc1275.exe",
 	"./testdata/project/bins/grpc1353.exe",
 	"./testdata/project/bins/grpc1424.exe",
 	"./testdata/project/bins/grpc1460.exe",
+	"./testdata/project/bins/grpc1687.exe",
+	"./testdata/project/bins/grpc1748.exe",
+	"./testdata/project/bins/grpc2371.exe",
 	"./testdata/project/bins/grpc3017.exe",
+	"./testdata/project/bins/grpc3090.exe",
 	"./testdata/project/bins/grpc660.exe",
 	"./testdata/project/bins/grpc795.exe",
 	"./testdata/project/bins/grpc862.exe",
 	"./testdata/project/bins/hugo5379.exe",
 	"./testdata/project/bins/istio16224.exe",
+	"./testdata/project/bins/istio16742.exe",
 	"./testdata/project/bins/istio17860.exe",
 	"./testdata/project/bins/istio18454.exe",
+	"./testdata/project/bins/istio8144.exe",
+	"./testdata/project/bins/istio8214.exe",
+	"./testdata/project/bins/istio8967.exe",
 	"./testdata/project/bins/kubernetes10182.exe",
 	"./testdata/project/bins/kubernetes11298.exe",
+	"./testdata/project/bins/kubernetes13058.exe",
 	"./testdata/project/bins/kubernetes13135.exe",
 	"./testdata/project/bins/kubernetes1321.exe",
 	"./testdata/project/bins/kubernetes25331.exe",
 	"./testdata/project/bins/kubernetes26980.exe",
 	"./testdata/project/bins/kubernetes30872.exe",
 	"./testdata/project/bins/kubernetes38669.exe",
+	"./testdata/project/bins/kubernetes49404.exe",
 	"./testdata/project/bins/kubernetes5316.exe",
 	"./testdata/project/bins/kubernetes58107.exe",
 	"./testdata/project/bins/kubernetes62464.exe",
 	"./testdata/project/bins/kubernetes6632.exe",
 	"./testdata/project/bins/kubernetes70277.exe",
+	"./testdata/project/bins/kubernetes70892.exe",
+	"./testdata/project/bins/kubernetes77796.exe",
+	"./testdata/project/bins/kubernetes79631.exe",
+	"./testdata/project/bins/kubernetes80284.exe",
+	"./testdata/project/bins/kubernetes81091.exe",
+	"./testdata/project/bins/kubernetes81148.exe",
+	"./testdata/project/bins/kubernetes82239.exe",
+	"./testdata/project/bins/kubernetes82550.exe",
+	"./testdata/project/bins/kubernetes88331.exe",
+	"./testdata/project/bins/kubernetes89164.exe",
 	"./testdata/project/bins/moby17176.exe",
+	"./testdata/project/bins/moby18412.exe",
 	"./testdata/project/bins/moby21233.exe",
+	"./testdata/project/bins/moby22941.exe",
 	"./testdata/project/bins/moby25384.exe",
+	"./testdata/project/bins/moby27037.exe",
 	"./testdata/project/bins/moby27782.exe",
 	"./testdata/project/bins/moby28462.exe",
 	"./testdata/project/bins/moby29733.exe",
@@ -208,6 +315,30 @@ var Bins = []string{
 	"./testdata/project/bins/moby4951.exe",
 	"./testdata/project/bins/moby7559.exe",
 	"./testdata/project/bins/serving2137.exe",
+	"./testdata/project/bins/serving3068.exe",
+	"./testdata/project/bins/serving3148.exe",
+	"./testdata/project/bins/serving4908.exe",
+	"./testdata/project/bins/serving5865.exe",
+	"./testdata/project/bins/serving6171.exe",
+	"./testdata/project/bins/serving6472.exe",
 	"./testdata/project/bins/syncthing4829.exe",
 	"./testdata/project/bins/syncthing5795.exe",
+}
+
+func ListTests(bin string) []string {
+	res := make([]string, 0)
+	command := exec.Command(bin, "-test.list", "_1")
+	var out bytes.Buffer
+	command.Stdout = &out
+	err := command.Run()
+	if err == nil {
+		outstr := out.String()
+		ss := strings.Split(outstr, "\n")
+		for _, s := range ss {
+			if strings.HasPrefix(s, "Test") && strings.HasSuffix(s, "_1") {
+				res = append(res, s)
+			}
+		}
+	}
+	return res
 }

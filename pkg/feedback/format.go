@@ -1,6 +1,7 @@
 package feedback
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -45,6 +46,11 @@ func implParse(s string) (bool, []uint64) {
 }
 
 func parseLine(s string) (bool, uint64, OpAndStatus) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("parseLine error, recovered\n")
+		}
+	}()
 	if !strings.HasPrefix(s, "[FB") {
 		return false, 0, OpAndStatus{}
 	}
@@ -113,6 +119,25 @@ func parseLine(s string) (bool, uint64, OpAndStatus) {
 	}
 }
 
+func ParseCovered(s string) [][]uint64 {
+	res := make([][]uint64, 0)
+	lines := strings.Split(s, "\n")
+	fblines := make([]string, 0)
+	for _, line := range lines {
+		if strings.HasPrefix(line, "[COVERED]") {
+			fblines = append(fblines, line)
+		}
+	}
+	for _, line := range fblines {
+		var prev, next uint64
+		_, err := fmt.Sscanf(line, "[COVERED] {%v, %v}", &prev, &next)
+		if err == nil {
+			res = append(res, []uint64{prev, next})
+		}
+	}
+	return res
+}
+
 func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 	lines := strings.Split(s, "\n")
 	fblines := make([]string, 0)
@@ -160,7 +185,7 @@ func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 	return m, orders
 }
 
-func Log2Cov(ops []OpAndStatus) Cov {
+func Log2Cov(ops []OpAndStatus) *Cov {
 	cov := NewCov()
 
 	l := len(ops)

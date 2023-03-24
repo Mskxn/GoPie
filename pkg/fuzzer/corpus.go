@@ -1,10 +1,14 @@
 package fuzzer
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"toolkit/pkg"
 )
+
+const allowDup = false
+const BANMAX = 100
 
 type Chain struct {
 	item []*pkg.Pair
@@ -101,11 +105,15 @@ func (c *Chain) merge(cc *Chain) {
 }
 
 type Corpus struct {
-	gm   map[string]*Chain
-	tm   map[string]*pkg.Pair
-	hash sync.Map
-	gmu  sync.RWMutex
-	tmu  sync.RWMutex
+	gm     map[string]*Chain
+	tm     map[string]*pkg.Pair
+	preban map[string]uint64
+	ban    map[string]struct{}
+	allow  map[string]struct{}
+	hash   sync.Map
+	gmu    sync.RWMutex
+	tmu    sync.RWMutex
+	bmu    sync.RWMutex
 }
 
 var once sync.Once
@@ -120,20 +128,86 @@ func (cp *Corpus) Init() {
 	once.Do(func() {
 		GlobalCorpus.gm = make(map[string]*Chain)
 		GlobalCorpus.tm = make(map[string]*pkg.Pair)
+		GlobalCorpus.ban = make(map[string]struct{})
+		GlobalCorpus.preban = make(map[string]uint64)
+		GlobalCorpus.allow = make(map[string]struct{})
 	})
+}
+
+func NewCorpus() *Corpus {
+	corpus := &Corpus{}
+	corpus.gm = make(map[string]*Chain)
+	corpus.tm = make(map[string]*pkg.Pair)
+	corpus.ban = make(map[string]struct{})
+	corpus.preban = make(map[string]uint64)
+	corpus.allow = make(map[string]struct{})
+	return corpus
 }
 
 func (cp *Corpus) Get() *Chain {
 	// TODO
+	cp.gmu.RLock()
+	cp.tmu.RLock()
+	defer cp.tmu.RUnlock()
+	defer cp.gmu.RUnlock()
 	for _, v := range cp.gm {
 		for _, vv := range cp.tm {
 			c := NewChain(v, vv)
 			if _, ok := cp.hash.LoadOrStore(c.ToString(), struct{}{}); !ok {
 				return c
 			}
+			if allowDup {
+				return c
+			}
 		}
 	}
 	return NewChain(nil, nil)
+}
+
+func (cp *Corpus) GGet() *Chain {
+	// TODO
+	cp.gmu.RLock()
+	defer cp.gmu.RUnlock()
+	for _, v := range cp.gm {
+		if _, ok := cp.hash.LoadOrStore(v.ToString(), struct{}{}); !ok {
+			return v
+		}
+		if allowDup {
+			return v
+		}
+	}
+	return NewChain(nil, nil)
+}
+
+func (cp *Corpus) Ban(ps [][]uint64) {
+	cp.bmu.Lock()
+	defer cp.bmu.Unlock()
+	for _, p := range ps {
+		s := fmt.Sprintf("{%v, %v}", p[0], p[1])
+		if _, ok := cp.ban[s]; ok {
+			continue
+		}
+		if _, ok := cp.allow[s]; ok {
+			continue
+		}
+		if _, ok := cp.preban[s]; !ok {
+			cp.preban[s] = 0
+		}
+		cp.preban[s] += 1
+		if cp.preban[s] >= BANMAX {
+			cp.ban[s] = struct{}{}
+			delete(cp.preban, s)
+		}
+	}
+}
+
+func (cp *Corpus) Allow(ps [][]uint64) {
+	cp.bmu.Lock()
+	defer cp.bmu.Unlock()
+	for _, p := range ps {
+		s := fmt.Sprintf("{%v, %v}", p[0], p[1])
+		cp.allow[s] = struct{}{}
+	}
 }
 
 func (cp *Corpus) GExist(chain *Chain) bool {
@@ -170,6 +244,17 @@ func (cp *Corpus) GUpdate(chain *Chain) bool {
 	return true
 }
 
+func (cp *Corpus) GSUpdate(chains []*Chain) bool {
+	var ok bool
+	for _, chain := range chains {
+		t := cp.GUpdate(chain)
+		if t {
+			ok = true
+		}
+	}
+	return ok
+}
+
 func (cp *Corpus) TUpdate(e *pkg.Pair) bool {
 	if cp.TExist(e) {
 		return false
@@ -203,6 +288,22 @@ func (cp *Corpus) UpdateSeed(seeds []*pkg.Pair) {
 	cp.Update(chs)
 }
 
+func (cp *Corpus) GUpdateSeed(seeds []*pkg.Pair) {
+	chs := make([]*Chain, 0)
+	for _, seed := range seeds {
+		chs = append(chs, &Chain{
+			item: []*pkg.Pair{seed, seed},
+		})
+	}
+	cp.GSUpdate(chs)
+}
+
 func GetGlobalCorpus() *Corpus {
 	return &GlobalCorpus
+}
+
+func (cp *Corpus) Size() int {
+	cp.gmu.RLock()
+	defer cp.gmu.RUnlock()
+	return len(cp.gm)
 }

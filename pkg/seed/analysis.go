@@ -7,6 +7,7 @@ import (
 
 func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	//Same object operated in different routines
+	visit := make(map[string]*pkg.Pair, 0)
 	res := make([]*pkg.Pair, 0)
 	for _, l := range m {
 		size := len(l)
@@ -14,17 +15,21 @@ func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 			for j := i + 1; j < size; j++ {
 				if l[i].Gid != l[j].Gid {
 					// Do not need to do a reverse, mutator can do it.
-					res = append(res, &pkg.Pair{
+					pair := &pkg.Pair{
 						Prev: pkg.Entry{
 							Opid: l[i].Opid,
 						},
 						Next: pkg.Entry{
 							Opid: l[j].Opid,
 						},
-					})
+					}
+					visit[pair.ToString()] = pair
 				}
 			}
 		}
+	}
+	for _, v := range visit {
+		res = append(res, v)
 	}
 	return res
 }

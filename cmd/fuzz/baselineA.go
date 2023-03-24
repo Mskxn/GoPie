@@ -5,21 +5,22 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"toolkit/cmd"
 )
 
-func baselineB() {
+func BaselineA(dir string) {
 	resCh := make(chan string, 100)
 	dowork := func(path string) {
-		cnt := 0
-		bound := 100
+		cnt := 1
+		bound := 1000
 		for {
-			command := exec.Command(path, "-test.v", "-test.run", "_1")
+			command := exec.Command("go", "test", "-timeout=1s", "-count=1", path)
 			var out, out2 bytes.Buffer
 			command.Stdout = &out
 			command.Stderr = &out2
 			err := command.Run()
 			if err != nil {
-				if strings.Contains(out.String(), "FAIL") || strings.Contains(out.String(), "fatal") {
+				if strings.Contains(out.String(), "FAIL") || strings.Contains(out.String(), "fatal") || strings.Contains(out.String(), "error") {
 					// log.Printf("%s", out.String())
 					break
 				}
@@ -33,15 +34,18 @@ func baselineB() {
 		resCh <- fmt.Sprintf("%s\tFAIL\t%v", path, cnt)
 	}
 
-	all := len(Bins)
-	for _, p := range Bins {
+	files := cmd.ListFiles(dir, func(s string) bool {
+		return strings.HasSuffix(s, "_test.go")
+	})
+	all := len(files)
+	for _, p := range files {
 		go dowork(p)
 	}
 
 	for {
 		select {
 		case v := <-resCh:
-			fmt.Printf("[%v/%v]\t%s\n", len(Bins)-all+1, len(Bins), v)
+			fmt.Printf("[%v/%v]\t%s\n", len(files)-all+1, len(files), v)
 			all -= 1
 			if all == 0 {
 				return

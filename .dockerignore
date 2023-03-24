@@ -1,0 +1,5 @@
+./testdata
+.git
+.gitignore
+.idea
+./bin

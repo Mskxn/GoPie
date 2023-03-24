@@ -85,7 +85,7 @@ type Cov struct {
 	omu sync.Mutex
 }
 
-var GlobalCov Cov
+var GlobalCov *Cov
 
 func init() {
 	SetGlobalCov()
@@ -96,16 +96,16 @@ func SetGlobalCov() {
 }
 
 func GetGlobalCov() *Cov {
-	return &GlobalCov
+	return GlobalCov
 }
 
-func NewCov() Cov {
+func NewCov() *Cov {
 	cov := Cov{}
 	// cov.ps = make(map[string]fuzzer.Pair)
 	cov.cs = make(map[OpID]Status)
 	cov.ts = make(map[OpID]uint64)
 	cov.orders = make(map[uint64]map[uint64]struct{})
-	return cov
+	return &cov
 }
 
 func (c *Cov) ToString() string {
@@ -177,7 +177,7 @@ func (c *Cov) UpdateT(k OpID, t uint64) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.ts[k] = t
-	return true
+	return false
 }
 
 func (c *Cov) GetTyp(k OpID) (uint64, bool) {
@@ -204,7 +204,9 @@ func (c *Cov) Merge(cc *Cov) bool {
 		}
 	}
 
-	c.OMerge(cc)
+	if c.OMerge(cc) {
+		interesting = true
+	}
 	return interesting
 }
 
@@ -292,15 +294,21 @@ func (c *Cov) UpdateO(opid uint64, next uint64) {
 	c.orders[opid][next] = struct{}{}
 }
 
-func (c *Cov) OMerge(cc *Cov) {
+func (c *Cov) OMerge(cc *Cov) bool {
 	c.omu.Lock()
 	defer c.omu.Unlock()
+	var interesting bool
 	for opid, nexts := range cc.orders {
 		for nextid, _ := range nexts {
 			if _, ok := c.orders[opid]; !ok {
 				c.orders[opid] = make(map[uint64]struct{})
+				interesting = true
+			}
+			if _, ok := c.orders[opid][nextid]; !ok {
+				interesting = true
 			}
 			c.orders[opid][nextid] = struct{}{}
 		}
 	}
+	return interesting
 }

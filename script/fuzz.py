@@ -148,6 +148,6 @@ def test_fuzz():
         print(res)
 
 if __name__ == "__main__":
-    #inst_all()
-    fuzz_all()
+    inst_all()
+    #fuzz_all()
     #test_fuzz()

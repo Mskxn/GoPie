@@ -1,59 +1,71 @@
 package fuzzer
 
 import (
+	"math/rand"
 	"toolkit/pkg"
 	"toolkit/pkg/feedback"
 )
 
 const (
-	BOUND = 5
+	BOUND       = 5
+	MUTATEBOUND = 1024
 )
 
 type Mutator struct {
+	Cov *feedback.Cov
 }
 
-func (m *Mutator) mutate(chain Chain) []*Chain {
-	res := make([]*Chain, 0)
-	gs := m.mutateg(chain.G())
-	ts := m.mutatet(chain.T())
-	for _, g := range gs {
-		for _, t := range ts {
-			nc := NewChain(g, t)
-			ok := m.filter(nc)
-			if ok {
-				res = append(res, nc)
-			}
-		}
-	}
-	return res
+func (m *Mutator) mutate(chain *Chain, energy int) []*Chain {
+	// TODO : energy
+	gs := m.mutateg(chain, energy)
+	return gs
 }
 
-func (m *Mutator) mutateg(chain *Chain) []*Chain {
+func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	// TODO
 	if chain == nil {
 		return []*Chain{}
 	}
-	// reduce the length
-	res := make([]*Chain, 0)
-	if chain.Len() >= 1 {
-		nc := chain.Copy()
-		nc.pop()
-		res = append(res, nc)
+	if chain.Len() == 0 {
+		return []*Chain{}
 	}
+	res := make([]*Chain, 0)
+	set := make(map[string]*Chain, 0)
+	set[chain.ToString()] = chain
+	for (rand.Int() % 5) < energy {
+		for _, chain := range set {
+			tset := make(map[string]*Chain, 0)
+			// reduce the length
+			if chain.Len() >= 2 {
+				nc := chain.Copy()
+				nc.pop()
+				tset[nc.ToString()] = nc
+			}
 
-	// increase the length
-	if chain.Len() < BOUND {
-		lastopid := chain.T().Next.Opid
-		nexts := feedback.GlobalCov.Next(lastopid)
-		for _, next := range nexts {
-			nc := chain.Copy()
-			nc.add(pkg.NewPair(lastopid, next))
-			res = append(res, nc)
+			// increase the length
+			if chain.Len() <= BOUND {
+				lastopid := chain.T().Next.Opid
+				nexts := m.Cov.Next(lastopid)
+				for _, next := range nexts {
+					nc := chain.Copy()
+					nc.add(pkg.NewPair(lastopid, next))
+					tset[nc.ToString()] = nc
+				}
+			}
+			for k, v := range tset {
+				set[k] = v
+			}
+		}
+		if len(set) > MUTATEBOUND {
+			break
 		}
 	}
 
 	// merge two chain
 	// TODO
+	for _, v := range set {
+		res = append(res, v)
+	}
 
 	return res
 }
@@ -61,7 +73,7 @@ func (m *Mutator) mutateg(chain *Chain) []*Chain {
 func (m *Mutator) mutatet(e *pkg.Pair) []*pkg.Pair {
 	// TODO
 	res := make([]*pkg.Pair, 0)
-	st, ok := feedback.GlobalCov.GetStatus(feedback.OpID(e.Prev.Opid))
+	st, ok := m.Cov.GetStatus(feedback.OpID(e.Prev.Opid))
 	if !ok {
 		return res
 	}
@@ -78,7 +90,7 @@ func (m *Mutator) mutatet(e *pkg.Pair) []*pkg.Pair {
 	// find type by status
 	typefilter := func(stbit, tbit uint64) {
 		if stn&stbit != 0 {
-			next, ok := feedback.GlobalCov.NextTyp(e.Prev.Opid, tbit, nil)
+			next, ok := m.Cov.NextTyp(e.Prev.Opid, tbit, nil)
 			if ok {
 				res = append(res, &pkg.Pair{Prev: e.Prev, Next: pkg.Entry{Opid: next}})
 			}
@@ -88,7 +100,7 @@ func (m *Mutator) mutatet(e *pkg.Pair) []*pkg.Pair {
 	// find status by typ
 	statusfilter := func(stbit, sbit uint64) {
 		if stn&stbit != 0 {
-			next, ok := feedback.GlobalCov.NextStatus(e.Next.Opid, stbit, nil)
+			next, ok := m.Cov.NextStatus(e.Next.Opid, stbit, nil)
 			if ok {
 				res = append(res, &pkg.Pair{Prev: pkg.Entry{Opid: next}, Next: e.Next})
 			}
@@ -131,7 +143,7 @@ func (m *Mutator) filter(chain *Chain) bool {
 	status := feedback.Status{}
 	for _, e := range g.item {
 		id := e.Prev.Opid
-		s, ok := feedback.GlobalCov.GetStatus(feedback.OpID(id))
+		s, ok := m.Cov.GetStatus(feedback.OpID(id))
 		if ok {
 			status = feedback.Merge(status, s)
 		}
@@ -139,7 +151,7 @@ func (m *Mutator) filter(chain *Chain) bool {
 
 	// check t
 	stn := status.ToU64()
-	if typ, ok := feedback.GlobalCov.GetTyp(feedback.OpID(t.Next.Opid)); ok {
+	if typ, ok := m.Cov.GetTyp(feedback.OpID(t.Next.Opid)); ok {
 		for s, op := range feedback.RuleMap {
 			if s&stn != 0 {
 				if typ&op != 0 {

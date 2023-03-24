@@ -16,7 +16,7 @@ import (
 var (
 	SelectInstNeed   = "SelectNeedInst"
 	SelectImportName = "sched"
-	SelectImportPath = "toolkit/pkg/sched"
+	SelectImportPath = "sched"
 )
 
 type SelectPass struct {
@@ -43,11 +43,11 @@ func RunSelectPass(in, out string) error {
 }
 
 func (p *SelectPass) Before(iCtx *inst.InstContext) {
-	iCtx.SetMetadata(ChannelNeedInst, false)
+	iCtx.SetMetadata(SelectInstNeed, false)
 }
 
 func (p *SelectPass) After(iCtx *inst.InstContext) {
-	need, _ := iCtx.GetMetadata(ChannelNeedInst)
+	need, _ := iCtx.GetMetadata(SelectInstNeed)
 	needinst := need.(bool)
 	if needinst {
 		inst.AddImport(iCtx.FS, iCtx.AstFile, SelectImportName, SelectImportPath)
@@ -84,6 +84,7 @@ func (p *SelectPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) b
 					Add(concrete.Pos(), id)
 					newCall := GenInstCall("InstChAF", ch, id)
 					comm.Body = append([]ast.Stmt{newCall}, comm.Body...)
+					iCtx.SetMetadata(SelectInstNeed, true)
 				case *ast.AssignStmt:
 					id := iCtx.GetNewOpId()
 					var unaryExpr *ast.UnaryExpr
@@ -97,6 +98,7 @@ func (p *SelectPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) b
 						Add(concrete.Pos(), id)
 						newCall := GenInstCall("InstChAF", ch, id)
 						comm.Body = append([]ast.Stmt{newCall}, comm.Body...)
+						iCtx.SetMetadata(SelectInstNeed, true)
 					}
 				case *ast.SendStmt: // send
 					id := iCtx.GetNewOpId()

@@ -6,9 +6,10 @@ import (
 )
 
 var Opts struct {
-	File string `long:"file" description:"Instrument single go source file"`
-	Out  string `long:"out" description:"Output instrumented golang source file to the given file. Only allow when instrumenting single golang source file"`
-	Dir  string `long:"dir" description:"Instrument all go source file under this dir"`
+	File       string `long:"file" description:"Instrument single go source file"`
+	Out        string `long:"out" description:"Output instrumented golang source file to the given file. Only allow when instrumenting single golang source file"`
+	Dir        string `long:"dir" description:"Instrument all go source file under this dir"`
+	OnlyGoleak string `long:"onlygoleak" description:"only goleak inst"`
 }
 
 func ParseFlags() {

@@ -10,7 +10,7 @@ import (
 var (
 	LockNeedInst   = "LockNeedInst"
 	LockImportName = "sched"
-	LockImportPath = "toolkit/pkg/sched"
+	LockImportPath = "sched"
 )
 
 type LockPass struct {

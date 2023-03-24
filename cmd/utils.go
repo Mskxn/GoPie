@@ -9,11 +9,13 @@ import (
 	"toolkit/pkg/utils/gofmt"
 )
 
-func ListFiles(d string) []string {
+func ListFiles(d string, f func(s string) bool) []string {
 	var files []string
 
 	err := filepath.Walk(d, func(path string, info os.FileInfo, err error) error {
-		files = append(files, path)
+		if f(path) {
+			files = append(files, path)
+		}
 		return nil
 	})
 	if err != nil {

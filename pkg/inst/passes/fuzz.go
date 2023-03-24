@@ -39,7 +39,7 @@ type FuzzPass struct {
 var (
 	FuzzNeedInst   = "NEED_FUZZ_INST"
 	FuzzImportName = "sched"
-	FuzzImportPath = "toolkit/pkg/sched"
+	FuzzImportPath = "sched"
 )
 
 func (p *FuzzPass) Before(ctx *inst.InstContext) {

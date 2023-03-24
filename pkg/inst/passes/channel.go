@@ -17,7 +17,7 @@ import (
 var (
 	ChannelNeedInst   = "ChannelNeedInst"
 	ChannelImportName = "sched"
-	ChannelImportPath = "toolkit/pkg/sched"
+	ChannelImportPath = "sched"
 )
 
 type ChRecPass struct {
