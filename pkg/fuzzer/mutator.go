@@ -15,10 +15,14 @@ type Mutator struct {
 	Cov *feedback.Cov
 }
 
-func (m *Mutator) mutate(chain *Chain, energy int) []*Chain {
+func (m *Mutator) mutate(chain *Chain, energy int) ([]*Chain, map[uint64]map[uint64]struct{}) {
 	// TODO : energy
 	gs := m.mutateg(chain, energy)
-	return gs
+	ht := make(map[uint64]map[uint64]struct{})
+	for _, g := range gs {
+		m.mutatet(g, ht)
+	}
+	return gs, ht
 }
 
 func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
@@ -32,7 +36,11 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	res := make([]*Chain, 0)
 	set := make(map[string]*Chain, 0)
 	set[chain.ToString()] = chain
-	for (rand.Int() % 5) < energy {
+	if chain.Len() == 1 {
+		nc := &Chain{[]*pkg.Pair{&pkg.Pair{chain.T().Next, chain.T().Prev}}}
+		set[nc.ToString()] = nc
+	}
+	for (rand.Int() % 150) < energy {
 		for _, chain := range set {
 			tset := make(map[string]*Chain, 0)
 			// reduce the length
@@ -40,15 +48,26 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 				nc := chain.Copy()
 				nc.pop()
 				tset[nc.ToString()] = nc
+				nc2 := chain.Copy()
+				nc2.item = nc2.item[1:len(nc2.item)]
+				tset[nc2.ToString()] = nc2
 			}
 
 			// increase the length
 			if chain.Len() <= BOUND {
-				lastopid := chain.T().Next.Opid
-				nexts := m.Cov.Next(lastopid)
-				for _, next := range nexts {
+				if rand.Int()%2 == 1 {
+					lastopid := chain.T().Next.Opid
+					nexts := m.Cov.Next(lastopid)
+					for _, next := range nexts {
+						if lastopid != next {
+							nc := chain.Copy()
+							nc.add(pkg.NewPair(lastopid, next))
+							tset[nc.ToString()] = nc
+						}
+					}
+				} else {
 					nc := chain.Copy()
-					nc.add(pkg.NewPair(lastopid, next))
+					nc.add(GetGlobalCorpus().GetC())
 					tset[nc.ToString()] = nc
 				}
 			}
@@ -64,101 +83,65 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	// merge two chain
 	// TODO
 	for _, v := range set {
-		res = append(res, v)
+		if m.filter(v) {
+			res = append(res, v)
+		}
 	}
 
 	return res
 }
 
-func (m *Mutator) mutatet(e *pkg.Pair) []*pkg.Pair {
-	// TODO
-	res := make([]*pkg.Pair, 0)
-	st, ok := m.Cov.GetStatus(feedback.OpID(e.Prev.Opid))
-	if !ok {
-		return res
-	}
+// mutatet find out possible attack pairs for each pair in the EC
+func (m *Mutator) mutatet(c *Chain, ht map[uint64]map[uint64]struct{}) {
+	for _, p := range c.item {
+		nop := p.Next
+		if _, ok := ht[nop.Opid]; !ok {
+			ht[nop.Opid] = make(map[uint64]struct{}, 0)
+		}
 
-	stn := st.ToU64()
+		// hang attack
+		ht[nop.Opid][nop.Opid] = struct{}{}
 
-	// reverse
-	// res = append(res, &Pair{e.Next, e.Prev})
+		st, ok := m.Cov.GetStatus(feedback.OpID(nop.Opid))
+		if !ok {
+			return
+		}
+		stn := st.ToU64()
 
-	/*
-		TODO : shit code,too many duplicate search works, but don't want to fix now
-	*/
-
-	// find type by status
-	typefilter := func(stbit, tbit uint64) {
-		if stn&stbit != 0 {
-			next, ok := m.Cov.NextTyp(e.Prev.Opid, tbit, nil)
-			if ok {
-				res = append(res, &pkg.Pair{Prev: e.Prev, Next: pkg.Entry{Opid: next}})
+		typefilter := func(stbit, tbit uint64) {
+			if stn&stbit != 0 {
+				next, ok := m.Cov.NextTyp(nop.Opid, tbit, nil)
+				if ok {
+					ht[nop.Opid][next] = struct{}{}
+				}
 			}
 		}
-	}
 
-	// find status by typ
-	statusfilter := func(stbit, sbit uint64) {
-		if stn&stbit != 0 {
-			next, ok := m.Cov.NextStatus(e.Next.Opid, stbit, nil)
-			if ok {
-				res = append(res, &pkg.Pair{Prev: pkg.Entry{Opid: next}, Next: e.Next})
+		// find status by typ
+		statusfilter := func(stbit, sbit uint64) {
+			if stn&stbit != 0 {
+				next, ok2 := m.Cov.NextStatus(nop.Opid, stbit, nil)
+				if ok2 {
+					ht[nop.Opid][next] = struct{}{}
+				}
 			}
 		}
+		rule := feedback.RuleMap
+		for st2, op := range rule {
+			statusfilter(st2, op)
+			typefilter(st2, op)
+		}
 	}
-
-	/*
-		typefilter(feedback.ChanFull, feedback.Chansend)
-		typefilter(feedback.ChanEmpty, feedback.Chanrecv)
-		typefilter(feedback.ChanClosed, feedback.Chansend|feedback.Chanclose)
-		typefilter(feedback.MutexLocked, feedback.Lock)
-		typefilter(feedback.MutexUnlocked, feedback.Unlock)
-
-		statusfilter(feedback.ChanFull, feedback.Chansend)
-		statusfilter(feedback.ChanEmpty, feedback.Chanrecv)
-		statusfilter(feedback.ChanClosed, feedback.Chansend|feedback.Chanclose)
-		statusfilter(feedback.MutexLocked, feedback.Lock)
-		statusfilter(feedback.MutexUnlocked, feedback.Unlock)
-	*/
-
-	rule := feedback.RuleMap
-	for st, op := range rule {
-		statusfilter(st, op)
-		typefilter(st, op)
-	}
-
-	return res
 }
 
 // filter the output of mutator by rules
 func (m *Mutator) filter(chain *Chain) bool {
-	// TODO
-	if chain.Len() <= 1 {
-		return true
-	}
-	g := chain.G()
-	t := chain.T()
-
-	// get g status
-	status := feedback.Status{}
-	for _, e := range g.item {
-		id := e.Prev.Opid
-		s, ok := m.Cov.GetStatus(feedback.OpID(id))
-		if ok {
-			status = feedback.Merge(status, s)
+	for i := 0; i < chain.Len()-1; i++ {
+		p1 := chain.item[i]
+		p2 := chain.item[i+1]
+		if p1.Next.Opid != p2.Prev.Opid {
+			return false
 		}
 	}
-
-	// check t
-	stn := status.ToU64()
-	if typ, ok := m.Cov.GetTyp(feedback.OpID(t.Next.Opid)); ok {
-		for s, op := range feedback.RuleMap {
-			if s&stn != 0 {
-				if typ&op != 0 {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	return true
 }

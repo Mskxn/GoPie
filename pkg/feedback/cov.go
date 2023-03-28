@@ -215,7 +215,7 @@ func (c *Cov) Score() int {
 	defer c.mu.Unlock()
 	// psl := len(c.ps)
 
-	psl := 0
+	psl := 2
 	for _, v := range c.orders {
 		psl += len(v)
 	}

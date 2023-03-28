@@ -7,6 +7,9 @@ import (
 )
 
 func TopF(s string) []string {
+	if strings.Contains(s, "panic") {
+		return []string{"panic"}
+	}
 	ss := strings.Split(s, "\n")
 	topfunc := make([]string, 0)
 	for _, line := range ss {
@@ -16,8 +19,10 @@ func TopF(s string) []string {
 				idx2 := strings.Index(line, "with ")
 				if idx2 != -1 {
 					f := line[idx2+5 : idx]
-					if strings.Contains(s, "github.com") {
+					if !strings.Contains(s, "github.com") {
 						topfunc = append(topfunc, f)
+					} else {
+						topfunc = append(topfunc, "ignore")
 					}
 				}
 			}
@@ -29,20 +34,26 @@ func TopF(s string) []string {
 type BugSet struct {
 	m   sync.Map
 	cnt uint32
+	mu  sync.Mutex
 }
 
 func NewBugSet() *BugSet {
 	return &BugSet{}
 }
 
-func (bs *BugSet) Add(fs []string, fn string) bool {
+func (bs *BugSet) Exist(fs []string, fn string) bool {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 	for _, f := range fs {
-		_, exist := bs.m.LoadOrStore(fn+f, struct{}{})
+		_, exist := bs.m.Load(fn + f)
 		if exist {
 			return true
 		}
 	}
 	atomic.AddUint32(&bs.cnt, 1)
+	for _, f := range fs {
+		bs.m.Store(fn+f, struct{}{})
+	}
 	return false
 }
 

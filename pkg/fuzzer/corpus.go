@@ -7,7 +7,11 @@ import (
 	"toolkit/pkg"
 )
 
-const allowDup = false
+var (
+	allowDup = 20
+	AttackP  = 30
+)
+
 const BANMAX = 100
 
 type Chain struct {
@@ -42,15 +46,6 @@ func (c *Chain) ToString() string {
 	return res
 }
 
-func NewChain(g *Chain, t *pkg.Pair) *Chain {
-	if g == nil && t == nil {
-		return nil
-	}
-	nc := g.Copy()
-	nc.add(t)
-	return nc
-}
-
 func (c *Chain) Len() int {
 	if c == nil {
 		return 0
@@ -65,6 +60,7 @@ func (c *Chain) G() *Chain {
 	return &Chain{c.item[0 : len(c.item)-1]}
 }
 
+// tail
 func (c *Chain) T() *pkg.Pair {
 	if c.Len() == 0 {
 		return nil
@@ -82,7 +78,9 @@ func (c *Chain) pop() *pkg.Pair {
 }
 
 func (c *Chain) add(e *pkg.Pair) {
-	c.item = append(c.item, e)
+	if e != nil {
+		c.item = append(c.item, e)
+	}
 }
 
 func (c *Chain) merge(cc *Chain) {
@@ -105,15 +103,18 @@ func (c *Chain) merge(cc *Chain) {
 }
 
 type Corpus struct {
-	gm     map[string]*Chain
-	tm     map[string]*pkg.Pair
-	preban map[string]uint64
-	ban    map[string]struct{}
-	allow  map[string]struct{}
-	hash   sync.Map
-	gmu    sync.RWMutex
-	tmu    sync.RWMutex
-	bmu    sync.RWMutex
+	gm map[string]*Chain
+	// map prev to nexts
+	tm      map[uint64]map[uint64]struct{}
+	covered map[uint64]uint64
+	preban  map[string]uint64
+	ban     map[string]struct{}
+	allow   map[string]struct{}
+	hash    sync.Map
+	gmu     sync.RWMutex
+	tmu     sync.RWMutex
+	bmu     sync.RWMutex
+	cmu     sync.RWMutex
 }
 
 var once sync.Once
@@ -127,41 +128,47 @@ func init() {
 func (cp *Corpus) Init() {
 	once.Do(func() {
 		GlobalCorpus.gm = make(map[string]*Chain)
-		GlobalCorpus.tm = make(map[string]*pkg.Pair)
+		GlobalCorpus.tm = make(map[uint64]map[uint64]struct{})
 		GlobalCorpus.ban = make(map[string]struct{})
 		GlobalCorpus.preban = make(map[string]uint64)
 		GlobalCorpus.allow = make(map[string]struct{})
+		GlobalCorpus.covered = make(map[uint64]uint64)
 	})
 }
 
 func NewCorpus() *Corpus {
 	corpus := &Corpus{}
 	corpus.gm = make(map[string]*Chain)
-	corpus.tm = make(map[string]*pkg.Pair)
+	corpus.tm = make(map[uint64]map[uint64]struct{})
 	corpus.ban = make(map[string]struct{})
 	corpus.preban = make(map[string]uint64)
 	corpus.allow = make(map[string]struct{})
+	corpus.covered = make(map[uint64]uint64)
 	return corpus
 }
 
-func (cp *Corpus) Get() *Chain {
+func (cp *Corpus) Get() (*Chain, *Chain) {
 	// TODO
 	cp.gmu.RLock()
-	cp.tmu.RLock()
-	defer cp.tmu.RUnlock()
 	defer cp.gmu.RUnlock()
+	htc := &Chain{}
 	for _, v := range cp.gm {
-		for _, vv := range cp.tm {
-			c := NewChain(v, vv)
-			if _, ok := cp.hash.LoadOrStore(c.ToString(), struct{}{}); !ok {
-				return c
-			}
-			if allowDup {
-				return c
+		if _, ok := cp.hash.LoadOrStore(v.ToString(), struct{}{}); ok {
+			if rand.Int()%100 > allowDup {
+				continue
 			}
 		}
+		for _, p := range v.item {
+			if rand.Int()%100 < AttackP {
+				ht := cp.HTGet(p.Next.Opid)
+				if ht != 0 {
+					htc.add(pkg.NewPair(p.Next.Opid, ht))
+				}
+			}
+		}
+		return v, htc
 	}
-	return NewChain(nil, nil)
+	return nil, nil
 }
 
 func (cp *Corpus) GGet() *Chain {
@@ -172,11 +179,21 @@ func (cp *Corpus) GGet() *Chain {
 		if _, ok := cp.hash.LoadOrStore(v.ToString(), struct{}{}); !ok {
 			return v
 		}
-		if allowDup {
+		if rand.Int()%100 < allowDup {
 			return v
 		}
 	}
-	return NewChain(nil, nil)
+	return nil
+}
+
+func (cp *Corpus) HTGet(id uint64) uint64 {
+	cp.tmu.RLock()
+	defer cp.tmu.RUnlock()
+	ts := cp.tm[id]
+	for v, _ := range ts {
+		return v
+	}
+	return 0
 }
 
 func (cp *Corpus) Ban(ps [][]uint64) {
@@ -222,18 +239,6 @@ func (cp *Corpus) GExist(chain *Chain) bool {
 	return false
 }
 
-func (cp *Corpus) TExist(e *pkg.Pair) bool {
-	if e == nil {
-		return false
-	}
-	cp.tmu.RLock()
-	defer cp.tmu.RUnlock()
-	if _, ok := cp.tm[e.ToString()]; ok {
-		return true
-	}
-	return false
-}
-
 func (cp *Corpus) GUpdate(chain *Chain) bool {
 	if cp.GExist(chain) {
 		return false
@@ -255,54 +260,74 @@ func (cp *Corpus) GSUpdate(chains []*Chain) bool {
 	return ok
 }
 
-func (cp *Corpus) TUpdate(e *pkg.Pair) bool {
-	if cp.TExist(e) {
-		return false
-	}
+func (cp *Corpus) TUpdate(m map[uint64]map[uint64]struct{}) bool {
 	cp.tmu.Lock()
 	defer cp.tmu.Unlock()
-	cp.tm[e.ToString()] = e
-	return true
-}
-
-func (cp *Corpus) Update(chs []*Chain) bool {
-	ok := false
-	for _, c := range chs {
-		if cp.GUpdate(c.G()) {
-			ok = true
-		}
-		if cp.TUpdate(c.T()) {
-			ok = true
+	var update bool
+	for k, v := range m {
+		if vv, ok := cp.tm[k]; !ok {
+			cp.tm[k] = v
+			update = true
+		} else {
+			for k2, v2 := range v {
+				vv[k2] = v2
+				update = true
+			}
 		}
 	}
-	return ok
+	return update
 }
 
 func (cp *Corpus) UpdateSeed(seeds []*pkg.Pair) {
 	chs := make([]*Chain, 0)
+	hts := make(map[uint64]map[uint64]struct{}, 0)
 	for _, seed := range seeds {
 		chs = append(chs, &Chain{
-			item: []*pkg.Pair{seed, seed},
+			item: []*pkg.Pair{seed},
 		})
+		hts[seed.Prev.Opid][seed.Next.Opid] = struct{}{}
 	}
-	cp.Update(chs)
+	cp.GSUpdate(chs)
+	cp.TUpdate(hts)
 }
 
 func (cp *Corpus) GUpdateSeed(seeds []*pkg.Pair) {
 	chs := make([]*Chain, 0)
 	for _, seed := range seeds {
 		chs = append(chs, &Chain{
-			item: []*pkg.Pair{seed, seed},
+			item: []*pkg.Pair{seed},
 		})
 	}
 	cp.GSUpdate(chs)
+}
+
+func (cp *Corpus) CUpdate(cs [][]uint64) {
+	cp.cmu.Lock()
+	defer cp.cmu.Unlock()
+	for _, v := range cs {
+		cp.covered[v[0]] = v[1]
+	}
+}
+
+func (cp *Corpus) GetC() *pkg.Pair {
+	cp.cmu.RLock()
+	defer cp.cmu.RUnlock()
+	for k, v := range cp.covered {
+		return pkg.NewPair(k, v)
+	}
+	return nil
+}
+
+func (cp *Corpus) Update(ncs []*Chain, hts map[uint64]map[uint64]struct{}) {
+	cp.GSUpdate(ncs)
+	cp.TUpdate(hts)
 }
 
 func GetGlobalCorpus() *Corpus {
 	return &GlobalCorpus
 }
 
-func (cp *Corpus) Size() int {
+func (cp *Corpus) GSize() int {
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
 	return len(cp.gm)

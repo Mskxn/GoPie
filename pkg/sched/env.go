@@ -3,19 +3,20 @@ package sched
 import "sync"
 
 type Config struct {
-	sendmap  map[uint64]uint64
-	waitmap  map[uint64]uint64
-	tracemap map[uint64]uint64
-	mu       sync.RWMutex
-	orders   [][]uint64
-	oidx     int32
+	waitmap      map[uint64]uint64
+	attackmap    map[uint64]uint64
+	active       map[uint64]struct{}
+	mu           sync.RWMutex
+	wait_queue   [][]uint64
+	attack_queue [][]uint64
+	top          int32
 }
 
 func NewConfig() *Config {
 	config := Config{}
-	config.sendmap = make(map[uint64]uint64)
 	config.waitmap = make(map[uint64]uint64)
-	config.tracemap = make(map[uint64]uint64)
-	config.orders = make([][]uint64, 0)
+	config.active = make(map[uint64]struct{})
+	config.wait_queue = make([][]uint64, 0)
+	config.attack_queue = make([][]uint64, 0)
 	return &config
 }

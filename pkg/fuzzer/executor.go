@@ -18,6 +18,7 @@ type Output struct {
 
 type Input struct {
 	c              *Chain
+	ht             *Chain
 	cmd            string
 	args           []string
 	timeout        int
@@ -26,21 +27,27 @@ type Input struct {
 
 func (e *Executor) Run(in Input) Output {
 	command := exec.Command(in.cmd, in.args...)
-	var instr string
+	var instr, htstr string
+
 	if in.c == nil {
 		instr = "Input="
 	} else {
 		instr = "Input=" + in.c.ToString()
 	}
-	command.Env = append(os.Environ(), instr)
+	if in.c == nil {
+		htstr = "Attack="
+	} else {
+		htstr = "Attack=" + in.ht.ToString()
+	}
+
+	command.Env = append(os.Environ(), instr, htstr)
 	if in.timeout != 0 {
 		command.Env = append(command.Env, fmt.Sprintf("TIMEOUT=%v", in.timeout))
 	}
 	if in.recovertimeout != 0 {
 		command.Env = append(command.Env, fmt.Sprintf("RECOVER_TIMEOUT=%v", in.recovertimeout))
 	}
-	//给标准输入以及标准错误初始化一个buffer，每条命令的输出位置可能是不一样的，
-	//比如有的命令会将输出放到stdout，有的放到stderr
+
 	command.Stdout = &bytes.Buffer{}
 	command.Stderr = &bytes.Buffer{}
 	//执行命令，直到命令结束

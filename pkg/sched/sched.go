@@ -3,10 +3,10 @@ package sched
 import (
 	"bufio"
 	"fmt"
-	"go.uber.org/goleak"
 	"log"
 	"os"
 	"runtime"
+	"sched/goleak"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,15 +23,17 @@ var cancel chan struct{}
 var once sync.Once
 
 const (
-	debugSched  = true
-	ignoreOrder = false
+	debugSched   = true
+	IgnoreOrders = false
+	MAXCHECKTRY  = 5
+	MAXATTACKTRY = 5
 )
 
 func init() {
 	config = NewConfig()
 	cancel = make(chan struct{})
 	timeout = time.Second * 20
-	recovertimeout = time.Second * 2
+	recovertimeout = time.Second * 1
 	if s := os.Getenv("TIMEOUT"); s != "" {
 		t, err := strconv.ParseInt(s, 10, 32)
 		if err == nil {
@@ -46,26 +48,30 @@ func init() {
 	}
 }
 
+// find sender with current wait ID
 func (c *Config) findPrev(i uint64) uint64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if int(c.oidx) < len(c.orders) && i == c.orders[c.oidx][1] {
-		return c.orders[c.oidx][0]
+	if int(c.top) < len(c.wait_queue) && i == c.wait_queue[c.top][1] {
+		return c.wait_queue[c.top][0]
 	}
 	return 0
 }
 
+// find waiter with current send ID
 func (c *Config) findNext(i uint64) uint64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if int(c.oidx) < len(c.orders) && i == c.orders[c.oidx][0] {
-		return c.orders[c.oidx][1]
+	if int(c.top) < len(c.wait_queue) && i == c.wait_queue[c.top][0] {
+		return c.wait_queue[c.top][1]
 	}
 	return 0
 }
 
+// 1. add the pairs to wait_queue
+// 2. add to the active
+// 3. add the next IDs to waitmap with a counter
 func ParsePair(s string) {
-	// TODO
 	config.mu.Lock()
 	defer config.mu.Unlock()
 	var prev, next uint64
@@ -75,8 +81,37 @@ func ParsePair(s string) {
 		if left < right {
 			_, err := fmt.Sscanf(s[left:right+1], "({%v}, {%v})", &prev, &next)
 			if err == nil {
+				if _, ok := config.waitmap[next]; !ok {
+					config.waitmap[next] = 0
+				}
 				config.waitmap[next] += 1
-				config.orders = append(config.orders, []uint64{prev, next})
+				config.wait_queue = append(config.wait_queue, []uint64{prev, next})
+				config.active[prev] = struct{}{}
+				config.active[next] = struct{}{}
+			}
+		}
+		if right+1 < len(s) {
+			s = s[right+1 : len(s)]
+		} else {
+			break
+		}
+	}
+}
+
+func ParseAttackPair(s string) {
+	config.mu.Lock()
+	defer config.mu.Unlock()
+	var prev, next uint64
+	for {
+		left := strings.Index(s, "(")
+		right := strings.Index(s, ")")
+		if left < right {
+			_, err := fmt.Sscanf(s[left:right+1], "({%v}, {%v})", &prev, &next)
+			if err == nil {
+				config.attackmap[next] = prev
+				config.attack_queue = append(config.wait_queue, []uint64{prev, next})
+				config.active[prev] = struct{}{}
+				config.active[next] = struct{}{}
 			}
 		}
 		if right+1 < len(s) {
@@ -88,49 +123,67 @@ func ParsePair(s string) {
 }
 
 func ParseInput() {
-	str_pairs := os.Getenv("Input")
-	if str_pairs == "" {
-		return
+	input_pairs := os.Getenv("Input")
+	attack_pairs := os.Getenv("Attack")
+	if input_pairs != "" {
+		ParsePair(input_pairs)
 	}
-	ParsePair(str_pairs)
+	if attack_pairs != "" {
+		ParseAttackPair(attack_pairs)
+	}
 }
 
 func SetTimeout(s int) {
 	timeout = time.Second * time.Duration(s)
 }
 
-func (c *Config) doWait(id uint64) bool {
+func (c *Config) doWait(id uint64) (is_attack bool, wait bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	if _, ok := c.active[id]; !ok {
+		return false, false
+	}
+	if _, ok := c.attackmap[id]; ok {
+		return true, true
+	}
 	if v, ok := c.waitmap[id]; ok {
-		if v == 0 {
-			return false
+		if v <= 0 {
+			return false, false
 		} else {
-			return true
+			return false, true
 		}
 	}
-	return false
+	return false, false
 }
 
 func (c *Config) waitDec(id uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if v, ok := c.waitmap[id]; ok {
-		if v == 0 {
+		if v <= 1 {
 			delete(config.waitmap, id)
 		}
-		if v > 0 {
+		if v > 1 {
 			c.waitmap[id] -= 1
 		}
 	}
 }
 
-/*
-TODO : change the bitmap, to statisfy real project
-1. about fragment, we need a map to map id to its search space, if we want to use current fuzzer, the space should no bigger than 64
-*/
 func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
-	if !config.doWait(id) {
+	var is_attack, wait bool
+	if is_attack, wait = config.doWait(id); !wait {
+		return
+	}
+	if is_attack {
+		for i := 0; i < MAXATTACKTRY; i++ {
+			pid, _ := config.attackmap[id]
+			_, ok := event.Load(pid)
+			if ok {
+				return
+			} else {
+				runtime.Gosched()
+			}
+		}
 		return
 	}
 	pid := config.findPrev(id)
@@ -139,7 +192,7 @@ func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 	}
 	for {
 		if _, ok := event.LoadAndDelete(pid); ok {
-			atomic.AddInt32(&config.oidx, 1)
+			atomic.AddInt32(&config.top, 1)
 			config.waitDec(id)
 			fmt.Printf("[COVERED] {%v, %v}\n", pid, id)
 			return
@@ -150,7 +203,6 @@ func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 		default:
 		}
 	}
-	return
 }
 
 func InstChAF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
@@ -161,7 +213,7 @@ func InstChAF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 }
 
 func InstMutexBF(id uint64, o any) {
-	if !config.doWait(id) {
+	if _, wait := config.doWait(id); wait {
 		return
 	}
 	pid := config.findPrev(id)
@@ -170,7 +222,7 @@ func InstMutexBF(id uint64, o any) {
 	}
 	for {
 		if _, ok := event.LoadAndDelete(pid); ok {
-			atomic.AddInt32(&config.oidx, 1)
+			atomic.AddInt32(&config.top, 1)
 			config.waitDec(id)
 			fmt.Printf("[COVERED] {%v, %v}\n", pid, id)
 			return
@@ -222,8 +274,12 @@ func Done(ch chan struct{}) {
 func Leakcheck(t *testing.T) {
 	once.Do(func() {
 		close(cancel)
-		time.Sleep(recovertimeout)
-		baseCheck(t)
+		for i := 0; i < MAXCHECKTRY; i++ {
+			time.Sleep(recovertimeout)
+			if baseCheck(t) {
+				break
+			}
+		}
 	})
 }
 
@@ -251,7 +307,7 @@ func readlines(filename string) []string {
 	return res
 }
 
-func baseCheck(t *testing.T) {
+func baseCheck(t *testing.T) bool {
 	opts := []goleak.Option{
 		goleak.IgnoreTopFunction("time.Sleep"),
 		goleak.IgnoreTopFunction("testing.(*F).Fuzz.func1"),
@@ -263,14 +319,9 @@ func baseCheck(t *testing.T) {
 		goleak.IgnoreTopFunction("sched.InstChBF[...]"),
 		goleak.IgnoreTopFunction("sched.InstChAF[...]"),
 		goleak.IgnoreTopFunction("sched.(*Config).findNext"),
-		goleak.IgnoreTopFunction("go.uber.org/goleak/internal/stack.getStackBuffer"),
-		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/eth/gasprice.NewOracle.func1"),
-		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/core.(*txSenderCacher).cache"),
+		goleak.IgnoreTopFunction("toolkit/pkg/sched/goleak/pkg/stack.getStackBuffer"),
 		goleak.IgnoreTopFunction("testing.tRunner.func1"),
 	}
-	others := readlines("./goleak.config")
-	for _, o := range others {
-		goleak.IgnoreTopFunction(o)
-	}
-	goleak.VerifyNone(t, opts...)
+
+	return goleak.VerifyNone(t, opts...)
 }
