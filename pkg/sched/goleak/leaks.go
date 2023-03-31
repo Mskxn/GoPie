@@ -32,8 +32,9 @@ type TestingT interface {
 
 // filterStacks will filter any stacks excluded by the given opts.
 // filterStacks modifies the passed in stacks slice.
-func filterStacks(stacks []Stack, skipID int, opts *opts) []Stack {
+func filterStacks(stacks []Stack, skipID int, opts *opts) ([]Stack, bool) {
 	filtered := stacks[:0]
+	var runnable bool
 	for _, stack := range stacks {
 		// Always skip the running goroutine.
 		if stack.ID() == skipID {
@@ -48,7 +49,7 @@ func filterStacks(stacks []Stack, skipID int, opts *opts) []Stack {
 		}
 		filtered = append(filtered, stack)
 	}
-	return filtered
+	return filtered, runnable
 }
 
 // Find looks for extra goroutines, and returns a descriptive error if
@@ -64,17 +65,20 @@ func Find(options ...Option) error {
 		return errors.New("Cleanup can only be passed to VerifyNone or VerifyTestMain")
 	}
 	var stacks []Stack
+	var runnable bool
 	retry := true
 	for i := 0; retry; i++ {
-		stacks = filterStacks(All(), cur, opts)
+		stacks, runnable = filterStacks(All(), cur, opts)
 
 		if len(stacks) == 0 {
 			return nil
 		}
 		retry = opts.retry(i)
 	}
-
-	return fmt.Errorf("found unexpected goroutines:\n%s", stacks)
+	if !runnable {
+		return fmt.Errorf("found unexpected goroutines:\n%s", stacks)
+	}
+	return nil
 }
 
 type testHelper interface {
@@ -97,6 +101,7 @@ func VerifyNone(t TestingT, options ...Option) bool {
 	}
 
 	if err := Find(opts); err != nil {
+		t.Error(fmt.Errorf("[GOLEAK] detect blocking"))
 		t.Error(err)
 		ok = true
 	}

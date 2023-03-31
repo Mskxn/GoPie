@@ -7,19 +7,25 @@ import (
 	"toolkit/cmd"
 )
 
+const (
+	maxParallel = 5
+)
+
 func BaselineB(dir string) {
 	resCh := make(chan string, 100)
 	dowork := func(path string) {
 		cnt := 1
 		bound := 1000
+		var bt string
 		for {
-			command := exec.Command(path, "-test.v", "-test.run", "_1")
+			command := exec.Command(path, "-test.v", "-test.run", "_1$")
 			var out, out2 bytes.Buffer
 			command.Stdout = &out
 			command.Stderr = &out2
 			err := command.Run()
 			if err != nil {
 				// log.Printf("%s", out.String())
+				bt = out2.String()
 				break
 			}
 			if cnt > bound {
@@ -28,7 +34,7 @@ func BaselineB(dir string) {
 			}
 			cnt += 1
 		}
-		resCh <- fmt.Sprintf("%s\tFAIL\t%v", path, cnt)
+		resCh <- fmt.Sprintf("%s\tFAIL\t%v\t%s", path, cnt, bt)
 	}
 
 	bins := cmd.ListFiles(dir, func(s string) bool {

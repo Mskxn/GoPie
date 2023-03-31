@@ -18,6 +18,7 @@ var opts struct {
 	TASK     string `long:"task" description:"task"`
 	LL       string `long:"llevel" description:"log level [info, debug, normal]"`
 	MaxWoker string `long:"max" description:"max worker"`
+	Fn       string `long:"func" description:"function"`
 }
 
 func ParseFlags() {
@@ -41,6 +42,8 @@ func main() {
 		BaselineA(opts.PATH)
 	case "baselineB":
 		BaselineB(opts.PATH)
+	case "RQ1":
+		RQ1(opts.PATH)
 	case "lite":
 		var timeout, rtimeout int64
 		var maxworker int
@@ -54,7 +57,7 @@ func main() {
 			max, _ := strconv.ParseInt(opts.MaxWoker, 10, 32)
 			maxworker = int(max)
 		}
-		Lite(opts.PATH, opts.LL, int(timeout), int(rtimeout), maxworker)
+		Lite(opts.PATH, opts.Fn, opts.LL, int(timeout), int(rtimeout), maxworker)
 	case "inst":
 		paths := cmd.ListFiles(opts.PATH, func(s string) bool {
 			return strings.HasSuffix(s, ".go")

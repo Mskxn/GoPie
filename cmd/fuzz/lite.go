@@ -6,14 +6,21 @@ import (
 	"toolkit/pkg/fuzzer"
 )
 
-func Lite(bin string, llevel string, timeout, recovertimeout int, maxworker int) {
+func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker int) {
 	resCh := make(chan string, 100)
 	logCh := make(chan string, 100)
 	bugset := bug.NewBugSet()
 
 	dowork := func(bin string, fn string) {
-		m := fuzzer.Monitor{MaxWorker: maxworker}
-		ok, detail := m.Start(bin, fn, llevel, logCh, true, timeout, recovertimeout, bugset)
+		m := fuzzer.Monitor{}
+
+		cfg := fuzzer.NewConfig(bin, fn, logCh, bugset, "default")
+		cfg.LogLevel = llevel
+		cfg.TimeOut = timeout
+		cfg.RecoverTimeOut = recovertimeout
+		cfg.MaxWorker = maxworker
+
+		ok, detail := m.Start(cfg)
 		var res string
 		if ok {
 			res = fmt.Sprintf("%s\tFAIL\t%s\n", bin, detail[1])
@@ -23,18 +30,24 @@ func Lite(bin string, llevel string, timeout, recovertimeout int, maxworker int)
 		resCh <- res
 	}
 	fmt.Printf("[FUZZER] Start %s\n", bin)
-	tests := ListTests(bin)
-	for _, test := range tests {
-		fmt.Printf("[WORKER] Start %s\n", test)
-		go dowork(bin, test)
+	var cnt, total int
+	if fn != "" {
+		go dowork(bin, fn)
+		total = 1
+	} else {
+		tests := ListTests(bin)
+		for _, test := range tests {
+			fmt.Printf("[WORKER] Start %s\n", test)
+			go dowork(bin, test)
+		}
+		total = len(tests)
 	}
-	cnt := len(tests)
 	for {
 		select {
 		case v := <-resCh:
-			fmt.Printf("[%v/%v]\t%s", len(tests)-cnt+1, len(tests), v)
-			cnt -= 1
-			if cnt == 0 {
+			fmt.Printf("[%v/%v]\t%s", cnt+1, total, v)
+			cnt += 1
+			if cnt == total {
 				return
 			}
 		case v := <-logCh:

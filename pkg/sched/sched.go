@@ -213,14 +213,27 @@ func InstChAF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 }
 
 func InstMutexBF(id uint64, o any) {
-	if _, wait := config.doWait(id); wait {
+	var is_attack, wait bool
+	if is_attack, wait = config.doWait(id); !wait {
 		return
 	}
-	pid := config.findPrev(id)
-	if pid == 0 {
+	if is_attack {
+		for i := 0; i < MAXATTACKTRY; i++ {
+			pid, _ := config.attackmap[id]
+			_, ok := event.Load(pid)
+			if ok {
+				return
+			} else {
+				runtime.Gosched()
+			}
+		}
 		return
 	}
 	for {
+		pid := config.findPrev(id)
+		if pid == 0 {
+			time.Sleep(recovertimeout)
+		}
 		if _, ok := event.LoadAndDelete(pid); ok {
 			atomic.AddInt32(&config.top, 1)
 			config.waitDec(id)
@@ -274,12 +287,7 @@ func Done(ch chan struct{}) {
 func Leakcheck(t *testing.T) {
 	once.Do(func() {
 		close(cancel)
-		for i := 0; i < MAXCHECKTRY; i++ {
-			time.Sleep(recovertimeout)
-			if baseCheck(t) {
-				break
-			}
-		}
+		baseCheck(t)
 	})
 }
 
@@ -314,13 +322,13 @@ func baseCheck(t *testing.T) bool {
 		goleak.IgnoreTopFunction("testing.runFuzzTests"),
 		goleak.IgnoreTopFunction("testing.runFuzzing"),
 		goleak.IgnoreTopFunction("os/signal.NotifyContext.func1"),
-		goleak.IgnoreTopFunction("sched.InstMutexBF"),
-		goleak.IgnoreTopFunction("sched.InstMutexAF"),
-		goleak.IgnoreTopFunction("sched.InstChBF[...]"),
-		goleak.IgnoreTopFunction("sched.InstChAF[...]"),
-		goleak.IgnoreTopFunction("sched.(*Config).findNext"),
-		goleak.IgnoreTopFunction("toolkit/pkg/sched/goleak/pkg/stack.getStackBuffer"),
 		goleak.IgnoreTopFunction("testing.tRunner.func1"),
+		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/metrics.(*meterArbiter).tick"),
+		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/core.(*txSenderCacher).cache"),
+		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/consensus/ethash.(*remoteSealer).loop"),
+		goleak.MaxRetryAttempts(20),
+		goleak.MaxSleepInterval(1 * time.Second),
+		goleak.IgnoreCurrent(),
 	}
 
 	return goleak.VerifyNone(t, opts...)

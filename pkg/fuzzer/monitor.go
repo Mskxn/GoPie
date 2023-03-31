@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
@@ -12,20 +11,15 @@ import (
 )
 
 var (
-	initTurnCnt = 100
-	maxFuzzCnt  = 10000
-	quitcnt     = 500
-	singleCrash = false
-	debug       = false
-	info        = false
-	normal      = true
+	debug  = false
+	info   = false
+	normal = true
 )
 
 type Monitor struct {
-	etimes    int32
-	max       int32
-	maxscore  int
-	MaxWorker int
+	etimes   int32
+	max      int32
+	maxscore int
 }
 
 type RunContext struct {
@@ -35,15 +29,12 @@ type RunContext struct {
 
 var workerID uint32
 
-func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string, usefeedback bool, timeout, recovertimeout int, bugset *bug.BugSet) (bool, []string) {
+func (m *Monitor) Start(cfg *Config) (bool, []string) {
 	if m.max == int32(0) {
-		m.max = int32(maxFuzzCnt)
-	}
-	if m.MaxWorker == 0 {
-		m.MaxWorker = 16
+		m.max = int32(cfg.MaxExecution)
 	}
 	m.maxscore = 10
-	switch llevel {
+	switch cfg.LogLevel {
 	case "debug":
 		debug = true
 		info = true
@@ -55,30 +46,28 @@ func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string,
 	fncov := feedback.NewCov()
 
 	wid := atomic.AddUint32(&workerID, 1)
-	ch := make(chan RunContext, m.MaxWorker*10)
+	ch := make(chan RunContext, cfg.MaxWorker*10)
 	cancel := make(chan struct{})
-	quit := quitcnt
+	quit := cfg.MaxQuit
 
-	var wg sync.WaitGroup
 	dowork := func() {
-		defer wg.Done()
-		defer atomic.AddInt32(&m.etimes, 1)
+		atomic.AddInt32(&m.etimes, 1)
 		for {
 			var c, ht *Chain
-			if usefeedback {
+			if cfg.UseFeedBack {
 				c, ht = corpus.Get()
 				if debug {
-					logCh <- fmt.Sprintf("[Corpus] SIZE %v, GET %s, ATTACK %s", corpus.GSize(), c.ToString(), ht.ToString())
+					cfg.LogCh <- fmt.Sprintf("[Corpus] SIZE %v, GET %s, ATTACK %s", corpus.GSize(), c.ToString(), ht.ToString())
 				}
 			}
 			e := Executor{}
 			in := Input{
 				c:              c,
 				ht:             ht,
-				cmd:            bin,
-				args:           []string{"-test.v", "-test.run", fn},
-				timeout:        timeout,
-				recovertimeout: recovertimeout,
+				cmd:            cfg.Bin,
+				args:           []string{"-test.v", "-test.run", cfg.Fn},
+				timeout:        cfg.TimeOut,
+				recovertimeout: cfg.RecoverTimeOut,
 			}
 			o := e.Run(in)
 			ch <- RunContext{In: in, Out: o}
@@ -89,8 +78,8 @@ func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string,
 			}
 		}
 	}
-
-	for i := 0; i < m.MaxWorker; i++ {
+	
+	for i := 0; i < cfg.MaxWorker; i++ {
 		go dowork()
 	}
 
@@ -112,27 +101,27 @@ func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string,
 			htc = "empty chain"
 		}
 		if debug {
-			logCh <- fmt.Sprintf("[WORKER %v] Input: %s\nAttack: %s", wid, inputc, htc)
+			cfg.LogCh <- fmt.Sprintf("[WORKER %v] Input: %s\nAttack: %s", wid, inputc, htc)
 		}
 		// global corpus is not thread safe now
 		if ctx.Out.Err != nil {
 			// ignore normal test fail
 			if strings.Contains(ctx.Out.O, "panic") || strings.Contains(ctx.Out.O, "found unexpected goroutines") {
 				tfs := bug.TopF(ctx.Out.O)
-				exist := bugset.Exist(tfs, fn)
+				exist := cfg.BugSet.Exist(tfs, cfg.Fn)
 				if !exist {
 					detail := []string{inputc, strconv.FormatInt(int64(atomic.LoadInt32(&m.etimes)), 10), ctx.Out.O}
 					if normal {
-						logCh <- fmt.Sprintf("[WORKER %v] CRASH [%v] \n %s\n%s\n%s\n%s", wid, bugset.Size(), inputc, htc, detail[1], ctx.Out.O)
+						cfg.LogCh <- fmt.Sprintf("[WORKER %v] CRASH [%v] \n %s\n%s\n%s\n%s", wid, cfg.BugSet.Size(), inputc, htc, detail[1], ctx.Out.O)
 					}
 					if debug {
 						topfs := ""
 						for _, f := range tfs {
 							topfs += f + "\n"
 						}
-						logCh <- fmt.Sprintf("[BUG] [%s] TopF : \n%s", fn, topfs)
+						cfg.LogCh <- fmt.Sprintf("[BUG] [%s] TopF : \n%s", cfg.Fn, topfs)
 					}
-					if singleCrash {
+					if cfg.SingleCrash {
 						close(cancel)
 						return true, detail
 					}
@@ -154,17 +143,17 @@ func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string,
 		}
 		energy := int(float64(score+1) / float64(m.maxscore+1) * 100)
 		if debug {
-			logCh <- fmt.Sprintf("[WORKER %v] score : %v\tenergy %v", wid, score, energy)
+			cfg.LogCh <- fmt.Sprintf("[WORKER %v] score : %v\tenergy %v", wid, score, energy)
 		}
 
 		var init bool
-		if atomic.LoadInt32(&m.etimes) < int32(initTurnCnt) {
+		if atomic.LoadInt32(&m.etimes) < int32(cfg.InitTurnCnt) {
 			init = true
 			seeds := seed.SRDOAnalysis(op_st)
 			seeds = append(seeds, seed.SODRAnalysis(op_st)...)
 			if debug {
 				if len(seeds) != 0 {
-					logCh <- fmt.Sprintf("[WORKER %v] %v SEEDS %s ...", wid, len(seeds), seeds[0].ToString())
+					cfg.LogCh <- fmt.Sprintf("[WORKER %v] %v SEEDS %s ...", wid, len(seeds), seeds[0].ToString())
 				}
 			}
 			corpus.GUpdateSeed(seeds)
@@ -172,20 +161,20 @@ func (m *Monitor) Start(bin string, fn string, llevel string, logCh chan string,
 		ok := fncov.Merge(cov)
 		if (init || ok) && inputc != "empty chain" && coveredinput.Len() != 0 {
 			if info {
-				logCh <- fmt.Sprintf("[WORKER %v] NEW score: [%v/%v] Input:%s\t Attack:%s", wid, score, m.maxscore, schedres, attackres)
+				cfg.LogCh <- fmt.Sprintf("[WORKER %v] NEW score: [%v/%v] Input:%s\t Attack:%s", wid, score, m.maxscore, schedres, attackres)
 			}
 			m := Mutator{Cov: fncov}
 			ncs, hts := m.mutate(coveredinput, energy)
 			if debug {
-				logCh <- fmt.Sprintf("[WORKER %v] MUTATE %s", wid, coveredinput.ToString())
+				cfg.LogCh <- fmt.Sprintf("[WORKER %v] MUTATE %s", wid, coveredinput.ToString())
 			}
 			corpus.Update(ncs, hts)
-			quit = quitcnt
+			quit = cfg.MaxQuit
 		} else {
 			quit -= 1
 			if quit <= 0 {
 				if info {
-					logCh <- fmt.Sprintf("[WORKER %v] Fuzzing seems useless, QUIT", wid)
+					cfg.LogCh <- fmt.Sprintf("[WORKER %v] Fuzzing seems useless, QUIT", wid)
 				}
 				return false, []string{}
 			}
