@@ -59,10 +59,12 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 					lastopid := chain.T().Next.Opid
 					nexts := m.Cov.Next(lastopid)
 					for _, next := range nexts {
-						if lastopid != next {
-							nc := chain.Copy()
-							nc.add(pkg.NewPair(lastopid, next))
-							tset[nc.ToString()] = nc
+						for _, next2 := range m.Cov.Next(next) {
+							if lastopid != next2 {
+								nc := chain.Copy()
+								nc.add(pkg.NewPair(lastopid, next2))
+								tset[nc.ToString()] = nc
+							}
 						}
 					}
 				} else {

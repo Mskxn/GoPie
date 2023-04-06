@@ -119,9 +119,16 @@ func genTestDecl(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 		&ast.Ident{Name: "done_xxx"},
 	})
 
+	checker := NewDeferExpr("sched", "Leakcheck", []ast.Expr{
+		&ast.BasicLit{
+			Kind:  token.IDENT,
+			Value: "t",
+		},
+	})
+
 	testgobodylst := make([]ast.Stmt, len(fn.Body.List))
 	copy(testgobodylst, fn.Body.List)
-	testgobodylst = append([]ast.Stmt{testgodone}, fn.Body.List...)
+	testgobodylst = append([]ast.Stmt{testgodone, checker}, fn.Body.List...)
 	testgobody := &ast.BlockStmt{List: testgobodylst}
 
 	testgo := &ast.GoStmt{Call: &ast.CallExpr{
@@ -134,12 +141,6 @@ func genTestDecl(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 			Body: testgobody,
 		},
 	}}
-	checker := NewDeferExpr("sched", "Leakcheck", []ast.Expr{
-		&ast.BasicLit{
-			Kind:  token.IDENT,
-			Value: "t",
-		},
-	})
 
 	parseinput := &ast.ExprStmt{NewArgCall("sched", "ParseInput", []ast.Expr{})}
 
@@ -167,7 +168,6 @@ func genTestDecl(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 	}
 
 	testbody := &ast.BlockStmt{List: []ast.Stmt{
-		checker,
 		parseinput,
 		decldone,
 		decltimeout,

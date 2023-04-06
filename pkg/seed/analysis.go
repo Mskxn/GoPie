@@ -5,6 +5,26 @@ import (
 	"toolkit/pkg/feedback"
 )
 
+func RandomSeed(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
+	var prev, next uint64
+	for _, l := range m {
+		if len(l) > 0 {
+			prev = l[0].Opid
+			break
+		}
+	}
+	for _, l := range m {
+		if len(l) > 0 {
+			next = l[0].Opid
+			break
+		}
+	}
+	return []*pkg.Pair{&pkg.Pair{
+		Prev: pkg.Entry{Opid: prev},
+		Next: pkg.Entry{Opid: next},
+	}}
+}
+
 func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	//Same object operated in different routines
 	visit := make(map[string]*pkg.Pair, 0)

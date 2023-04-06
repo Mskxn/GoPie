@@ -101,9 +101,8 @@ func VerifyNone(t TestingT, options ...Option) bool {
 	}
 
 	if err := Find(opts); err != nil {
-		t.Error(fmt.Errorf("[GOLEAK] detect blocking"))
-		t.Error(err)
 		ok = true
+		t.Error(err)
 	}
 
 	if cleanup != nil {

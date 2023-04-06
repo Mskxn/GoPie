@@ -48,7 +48,7 @@ func implParse(s string) (bool, []uint64) {
 func parseLine(s string) (bool, uint64, OpAndStatus) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("parseLine error, recovered\n")
+			// fmt.Printf("parseLine error, recovered\n")
 		}
 	}()
 	if !strings.HasPrefix(s, "[FB") {

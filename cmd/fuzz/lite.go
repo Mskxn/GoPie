@@ -20,12 +20,12 @@ func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker 
 		cfg.RecoverTimeOut = recovertimeout
 		cfg.MaxWorker = maxworker
 
-		ok, detail := m.Start(cfg)
+		ok, detail := m.Start(cfg, &fuzzer.Visitor{})
 		var res string
 		if ok {
-			res = fmt.Sprintf("%s\tFAIL\t%s\n", bin, detail[1])
+			res = fmt.Sprintf("%s\tFAIL\t%s\n", fn, detail[1])
 		} else {
-			res = fmt.Sprintf("%s\tPASS\n", bin)
+			res = fmt.Sprintf("%s\tPASS\n", fn)
 		}
 		resCh <- res
 	}

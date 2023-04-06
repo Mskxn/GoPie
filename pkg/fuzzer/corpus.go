@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"toolkit/pkg"
 )
 
 var (
 	allowDup = 20
-	AttackP  = 30
+	AttackP  = 40
 )
 
 const BANMAX = 100
@@ -105,16 +106,18 @@ func (c *Chain) merge(cc *Chain) {
 type Corpus struct {
 	gm map[string]*Chain
 	// map prev to nexts
-	tm      map[uint64]map[uint64]struct{}
-	covered map[uint64]uint64
-	preban  map[string]uint64
-	ban     map[string]struct{}
-	allow   map[string]struct{}
-	hash    sync.Map
-	gmu     sync.RWMutex
-	tmu     sync.RWMutex
-	bmu     sync.RWMutex
-	cmu     sync.RWMutex
+	tm              map[uint64]map[uint64]struct{}
+	covered         map[uint64]uint64
+	preban          map[string]uint64
+	ban             map[string]struct{}
+	allow           map[string]struct{}
+	schedCoveredCnt uint64
+	fetchCnt        uint64
+	hash            sync.Map
+	gmu             sync.RWMutex
+	tmu             sync.RWMutex
+	bmu             sync.RWMutex
+	cmu             sync.RWMutex
 }
 
 var once sync.Once
@@ -147,8 +150,21 @@ func NewCorpus() *Corpus {
 	return corpus
 }
 
+func (cp *Corpus) IncSchedCnt() {
+	atomic.AddUint64(&cp.schedCoveredCnt, 1)
+}
+
+func (cp *Corpus) SchedCnt() uint64 {
+	return atomic.LoadUint64(&cp.schedCoveredCnt)
+}
+
+func (cp *Corpus) FetchCnt() uint64 {
+	return atomic.LoadUint64(&cp.fetchCnt)
+}
+
 func (cp *Corpus) Get() (*Chain, *Chain) {
 	// TODO
+	atomic.AddUint64(&cp.fetchCnt, 1)
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
 	htc := &Chain{}

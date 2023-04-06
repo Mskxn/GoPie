@@ -21,7 +21,7 @@ func RQ1(path string) {
 
 		cfg := fuzzer.NewConfig(bin, fn, logCh, bugset, "goker")
 
-		ok, detail := m.Start(cfg)
+		ok, detail := m.Start(cfg, &fuzzer.Visitor{})
 		var res string
 		if ok {
 			res = fmt.Sprintf("%s\tFAIL\t%s\n", bin, detail[1])

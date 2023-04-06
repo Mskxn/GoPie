@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 )
 
 type Executor struct {
@@ -14,6 +15,7 @@ type Output struct {
 	Err   error
 	O     string
 	Trace string
+	Time  time.Duration
 }
 
 type Input struct {
@@ -51,11 +53,13 @@ func (e *Executor) Run(in Input) Output {
 	command.Stdout = &bytes.Buffer{}
 	command.Stderr = &bytes.Buffer{}
 	//执行命令，直到命令结束
+	start := time.Now()
 	err := command.Run()
 	//打印命令行的标准输出
 	return Output{
 		err,
 		command.Stdout.(*bytes.Buffer).String(),
 		command.Stderr.(*bytes.Buffer).String(),
+		time.Since(start),
 	}
 }

@@ -43,7 +43,6 @@ func (tm *simpleTokenTTLKeeper) run() {
 			sched.InstMutexAF(1005022347275, &tm.mu)
 		case <-tm.stopc:
 			sched.InstChAF(1005022347273, tm.stopc)
-			return
 		}
 	}
 }
@@ -58,12 +57,12 @@ func TestClose(t *testing.T) {
 	go tm.stop()
 }
 func TestClose_1(t *testing.T) {
-	defer sched.Leakcheck(t)
 	sched.ParseInput()
 	done_xxx := sched.GetDone()
 	timeout_xxx := sched.GetTimeout()
 	go func() {
 		defer sched.Done(done_xxx)
+		defer sched.Leakcheck(t)
 		tm := simpleTokenTTLKeeper{
 			donec: make(chan struct{}),
 			stopc: make(chan struct{}),

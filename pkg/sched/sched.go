@@ -25,7 +25,7 @@ var once sync.Once
 const (
 	debugSched   = true
 	IgnoreOrders = false
-	MAXCHECKTRY  = 5
+	MAXCHECKTRY  = 10
 	MAXATTACKTRY = 5
 )
 
@@ -190,6 +190,7 @@ func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 	if pid == 0 {
 		return
 	}
+	timer := time.After(timeout / 5)
 	for {
 		if _, ok := event.LoadAndDelete(pid); ok {
 			atomic.AddInt32(&config.top, 1)
@@ -199,6 +200,8 @@ func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 		}
 		select {
 		case <-cancel:
+			return
+		case <-timer:
 			return
 		default:
 		}
@@ -326,8 +329,8 @@ func baseCheck(t *testing.T) bool {
 		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/metrics.(*meterArbiter).tick"),
 		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/core.(*txSenderCacher).cache"),
 		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/consensus/ethash.(*remoteSealer).loop"),
-		goleak.MaxRetryAttempts(20),
-		goleak.MaxSleepInterval(1 * time.Second),
+		goleak.MaxRetryAttempts(24),
+		goleak.MaxSleepInterval(10 * time.Second),
 		goleak.IgnoreCurrent(),
 	}
 

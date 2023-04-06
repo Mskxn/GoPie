@@ -132,7 +132,7 @@ func (c *Cov) ToString() string {
 		cs += fmt.Sprintf("[%v] %v (%s)\n", cnt, opid, c.ToString())
 		cnt += 1
 	}
-	score += fmt.Sprintf("%v\n", c.Score())
+	score += fmt.Sprintf("%v\n", c.Score(true))
 	return pairs + "\n" + cs + "\n" + score + "\n"
 }
 
@@ -210,7 +210,18 @@ func (c *Cov) Merge(cc *Cov) bool {
 	return interesting
 }
 
-func (c *Cov) Score() int {
+func (c *Cov) Score(usest bool) int {
+	psl, csl := c.Size()
+	var score int
+	if usest {
+		score = int(math.Log(float64(psl))) + csl*10
+	} else {
+		score = int(math.Log(float64(psl)))
+	}
+	return score
+}
+
+func (c *Cov) Size() (int, int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// psl := len(c.ps)
@@ -221,7 +232,7 @@ func (c *Cov) Score() int {
 	}
 
 	csl := len(c.cs)
-	return int(math.Log(float64(psl))) + csl*10
+	return psl, csl
 }
 
 func (c *Cov) Next(opid uint64) []uint64 {
