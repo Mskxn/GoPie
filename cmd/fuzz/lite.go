@@ -10,7 +10,8 @@ func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker 
 	resCh := make(chan string, 100)
 	logCh := make(chan string, 100)
 	bugset := bug.NewBugSet()
-
+	nolimit := make(chan struct{})
+	close(nolimit)
 	dowork := func(bin string, fn string) {
 		m := fuzzer.Monitor{}
 
@@ -20,7 +21,7 @@ func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker 
 		cfg.RecoverTimeOut = recovertimeout
 		cfg.MaxWorker = maxworker
 
-		ok, detail := m.Start(cfg, &fuzzer.Visitor{})
+		ok, detail := m.Start(cfg, &fuzzer.Visitor{}, nolimit)
 		var res string
 		if ok {
 			res = fmt.Sprintf("%s\tFAIL\t%s\n", fn, detail[1])

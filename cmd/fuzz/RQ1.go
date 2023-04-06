@@ -11,7 +11,8 @@ func RQ1(path string) {
 	resCh := make(chan string, 10000)
 	logCh := make(chan string, 10000)
 	bugset := bug.NewBugSet()
-
+	nolimit := make(chan struct{}, 0)
+	close(nolimit)
 	bins := cmd.ListFiles(path, func(s string) bool {
 		return true
 	})
@@ -21,7 +22,7 @@ func RQ1(path string) {
 
 		cfg := fuzzer.NewConfig(bin, fn, logCh, bugset, "goker")
 
-		ok, detail := m.Start(cfg, &fuzzer.Visitor{})
+		ok, detail := m.Start(cfg, &fuzzer.Visitor{}, nolimit)
 		var res string
 		if ok {
 			res = fmt.Sprintf("%s\tFAIL\t%s\n", bin, detail[1])

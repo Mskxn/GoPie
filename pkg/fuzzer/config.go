@@ -17,6 +17,7 @@ type Config struct {
 	UseCoveredSched bool
 	UseStates       bool
 	UseAnalysis     bool
+	UseMutate       bool
 
 	TimeOut        int
 	RecoverTimeOut int
@@ -36,6 +37,7 @@ func DefaultConfig() *Config {
 		UseStates:       true,
 		UseCoveredSched: true,
 		UseAnalysis:     true,
+		UseMutate:       true,
 		TimeOut:         20,
 		RecoverTimeOut:  100,
 		InitTurnCnt:     10,
@@ -54,6 +56,7 @@ func GokerConfig() *Config {
 		UseStates:       true,
 		UseCoveredSched: true,
 		UseAnalysis:     true,
+		UseMutate:       true,
 		TimeOut:         5,
 		RecoverTimeOut:  100,
 		InitTurnCnt:     10,

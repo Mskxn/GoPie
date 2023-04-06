@@ -60,6 +60,8 @@ func main() {
 			maxworker = int(max)
 		}
 		Lite(opts.PATH, opts.Fn, opts.LL, int(timeout), int(rtimeout), maxworker)
+	case "full":
+		Full(opts.PATH, opts.LL)
 	case "inst":
 		paths := cmd.ListFiles(opts.PATH, func(s string) bool {
 			return strings.HasSuffix(s, ".go")

@@ -10,15 +10,16 @@ import (
 
 func RQ2(bin string) {
 	sumCh := make(chan string, 10000)
-
+	nolimit := make(chan struct{}, 0)
+	close(nolimit)
 	dowork := func(v *fuzzer.Visitor, cfg *fuzzer.Config) {
 		m := fuzzer.Monitor{}
-		m.Start(cfg, v)
+		m.Start(cfg, v, nolimit)
 	}
 
 	tests := ListTests(bin)
 
-	oneCase := func(id string, useanalysis, usefeedback, usesched, usestate bool) []*fuzzer.Visitor {
+	oneCase := func(id string, useanalysis, usefeedback, usesched, usestate, usemutate bool) []*fuzzer.Visitor {
 		newBugset := bug.NewBugSet()
 		sharedCov := feedback.NewCov()
 		sharedCorpus := fuzzer.NewCorpus()
@@ -34,6 +35,7 @@ func RQ2(bin string) {
 			newCfg.UseStates = usestate
 			newCfg.UseCoveredSched = usesched
 			newCfg.UseFeedBack = usefeedback
+			newCfg.UseStates = usemutate
 
 			go dowork(v, newCfg)
 			go func() {
@@ -52,11 +54,12 @@ func RQ2(bin string) {
 		}
 	}
 
-	go oneCase("FULL", true, true, true, true)
-	go oneCase("-An", false, true, true, true)
-	go oneCase("-FB", true, false, true, true)
-	go oneCase("-SC", true, true, false, true)
-	go oneCase("-ST", true, true, true, false)
+	go oneCase("FULL", true, true, true, true, true)
+	go oneCase("-An", false, true, true, true, true)
+	go oneCase("-FB", true, false, true, true, true)
+	go oneCase("-SC", true, true, false, true, true)
+	go oneCase("-ST", true, true, true, false, true)
+	go oneCase("-MU", true, true, true, true, false)
 
 	for {
 		select {

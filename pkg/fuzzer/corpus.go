@@ -111,6 +111,7 @@ type Corpus struct {
 	preban          map[string]uint64
 	ban             map[string]struct{}
 	allow           map[string]struct{}
+	schedCovered    sync.Map
 	schedCoveredCnt uint64
 	fetchCnt        uint64
 	hash            sync.Map
@@ -150,8 +151,10 @@ func NewCorpus() *Corpus {
 	return corpus
 }
 
-func (cp *Corpus) IncSchedCnt() {
-	atomic.AddUint64(&cp.schedCoveredCnt, 1)
+func (cp *Corpus) IncSchedCnt(sc string) {
+	if _, exist := cp.schedCovered.LoadOrStore(sc, struct{}{}); !exist {
+		atomic.AddUint64(&cp.schedCoveredCnt, 1)
+	}
 }
 
 func (cp *Corpus) SchedCnt() uint64 {
@@ -162,9 +165,13 @@ func (cp *Corpus) FetchCnt() uint64 {
 	return atomic.LoadUint64(&cp.fetchCnt)
 }
 
+func (cp *Corpus) IncFetchCnt() {
+	atomic.AddUint64(&cp.fetchCnt, 1)
+}
+
 func (cp *Corpus) Get() (*Chain, *Chain) {
 	// TODO
-	atomic.AddUint64(&cp.fetchCnt, 1)
+	cp.IncFetchCnt()
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
 	htc := &Chain{}

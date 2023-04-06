@@ -30,7 +30,7 @@ type RunContext struct {
 
 var workerID uint32
 
-func (m *Monitor) Start(cfg *Config, visitor *Visitor) (bool, []string) {
+func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bool, []string) {
 	if m.max == int32(0) {
 		m.max = int32(cfg.MaxExecution)
 	}
@@ -66,21 +66,23 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor) (bool, []string) {
 	quit := cfg.MaxQuit
 
 	dowork := func() {
-		atomic.AddInt32(&m.etimes, 1)
 		for {
 			var c, ht *Chain
-			if cfg.UseFeedBack {
+			if cfg.UseMutate {
 				c, ht = corpus.Get()
+			} else {
+				corpus.IncFetchCnt()
 			}
 			e := Executor{}
 			in := Input{
 				c:              c,
 				ht:             ht,
 				cmd:            cfg.Bin,
-				args:           []string{"-test.v", "-test.run", cfg.Fn, "-timeout 30s"},
+				args:           []string{"-test.v", "-test.run", cfg.Fn, "-test.timeout", "1m"},
 				timeout:        cfg.TimeOut,
 				recovertimeout: cfg.RecoverTimeOut,
 			}
+			atomic.AddInt32(&m.etimes, 1)
 			o := e.Run(in)
 			if debug {
 				cfg.LogCh <- fmt.Sprintf("%s\t[EXECUTOR] Finish, USE %s", time.Now().String(), o.Time.String())
@@ -185,22 +187,24 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor) (bool, []string) {
 		}
 		ok := fncov.Merge(cov)
 		if (init || ok) && inputc != "empty chain" && coveredinput.Len() != 0 {
-			corpus.IncSchedCnt()
+			corpus.IncSchedCnt(schedres)
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s\t Attack:%s", time.Now().String(), wid, score, m.maxscore, schedres, attackres)
 			}
 			m := Mutator{Cov: fncov}
 			var ncs []*Chain
 			var hts map[uint64]map[uint64]struct{}
-			if cfg.UseCoveredSched {
-				ncs, hts = m.mutate(coveredinput, energy)
-			} else {
-				ncs, hts = m.mutate(ctx.In.c, energy)
+			if cfg.UseFeedBack {
+				if cfg.UseCoveredSched {
+					ncs, hts = m.mutate(coveredinput, energy)
+				} else {
+					ncs, hts = m.mutate(ctx.In.c, energy)
+				}
+				if debug {
+					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
+				}
+				corpus.Update(ncs, hts)
 			}
-			if debug {
-				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
-			}
-			corpus.Update(ncs, hts)
 			quit = cfg.MaxQuit
 		} else {
 			quit -= 1
@@ -208,6 +212,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor) (bool, []string) {
 				if info {
 					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] Fuzzing seems useless, QUIT", time.Now().String(), wid)
 				}
+				close(cancel)
 				return false, []string{}
 			}
 		}
