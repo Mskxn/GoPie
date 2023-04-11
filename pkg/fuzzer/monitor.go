@@ -82,12 +82,30 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				timeout:        cfg.TimeOut,
 				recovertimeout: cfg.RecoverTimeOut,
 			}
+			// _, ok := <-ticket
 			atomic.AddInt32(&m.etimes, 1)
-			o := e.Run(in)
+			timeout := time.After(1 * time.Minute)
+			done := make(chan int)
+			var o *Output
+			go func() {
+				t := e.Run(in)
+				o = &t
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-timeout:
+			}
+			// if ok {
+			//	ticket <- struct{}{}
+			//}
+			if o == nil {
+				continue
+			}
 			if debug {
 				cfg.LogCh <- fmt.Sprintf("%s\t[EXECUTOR] Finish, USE %s", time.Now().String(), o.Time.String())
 			}
-			ch <- RunContext{In: in, Out: o}
+			ch <- RunContext{In: in, Out: *o}
 			select {
 			case <-cancel:
 				break

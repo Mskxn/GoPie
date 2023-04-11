@@ -1,4 +1,5 @@
-if $1 == "go"
+#!/bin/bash
+if [ "$1" = "go" ]
 then
   mv ./patch/runtime/chan.go.patch ./patch/runtime/chan.go
   mv ./patch/sync/mutex.go.patch ./patch/sync/mutex.go

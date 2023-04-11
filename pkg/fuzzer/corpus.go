@@ -104,13 +104,13 @@ func (c *Chain) merge(cc *Chain) {
 }
 
 type Corpus struct {
-	gm map[string]*Chain
+	gm map[uint32]*Chain
 	// map prev to nexts
 	tm              map[uint64]map[uint64]struct{}
 	covered         map[uint64]uint64
-	preban          map[string]uint64
-	ban             map[string]struct{}
-	allow           map[string]struct{}
+	preban          map[uint32]uint64
+	ban             map[uint32]struct{}
+	allow           map[uint32]struct{}
 	schedCovered    sync.Map
 	schedCoveredCnt uint64
 	fetchCnt        uint64
@@ -131,28 +131,28 @@ func init() {
 
 func (cp *Corpus) Init() {
 	once.Do(func() {
-		GlobalCorpus.gm = make(map[string]*Chain)
+		GlobalCorpus.gm = make(map[uint32]*Chain)
 		GlobalCorpus.tm = make(map[uint64]map[uint64]struct{})
-		GlobalCorpus.ban = make(map[string]struct{})
-		GlobalCorpus.preban = make(map[string]uint64)
-		GlobalCorpus.allow = make(map[string]struct{})
+		GlobalCorpus.ban = make(map[uint32]struct{})
+		GlobalCorpus.preban = make(map[uint32]uint64)
+		GlobalCorpus.allow = make(map[uint32]struct{})
 		GlobalCorpus.covered = make(map[uint64]uint64)
 	})
 }
 
 func NewCorpus() *Corpus {
 	corpus := &Corpus{}
-	corpus.gm = make(map[string]*Chain)
+	corpus.gm = make(map[uint32]*Chain)
 	corpus.tm = make(map[uint64]map[uint64]struct{})
-	corpus.ban = make(map[string]struct{})
-	corpus.preban = make(map[string]uint64)
-	corpus.allow = make(map[string]struct{})
+	corpus.ban = make(map[uint32]struct{})
+	corpus.preban = make(map[uint32]uint64)
+	corpus.allow = make(map[uint32]struct{})
 	corpus.covered = make(map[uint64]uint64)
 	return corpus
 }
 
 func (cp *Corpus) IncSchedCnt(sc string) {
-	if _, exist := cp.schedCovered.LoadOrStore(sc, struct{}{}); !exist {
+	if _, exist := cp.schedCovered.LoadOrStore(Hash32(sc), struct{}{}); !exist {
 		atomic.AddUint64(&cp.schedCoveredCnt, 1)
 	}
 }
@@ -176,7 +176,7 @@ func (cp *Corpus) Get() (*Chain, *Chain) {
 	defer cp.gmu.RUnlock()
 	htc := &Chain{}
 	for _, v := range cp.gm {
-		if _, ok := cp.hash.LoadOrStore(v.ToString(), struct{}{}); ok {
+		if _, ok := cp.hash.LoadOrStore(Hash32(v.ToString()), struct{}{}); ok {
 			if rand.Int()%100 > allowDup {
 				continue
 			}
@@ -199,7 +199,7 @@ func (cp *Corpus) GGet() *Chain {
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
 	for _, v := range cp.gm {
-		if _, ok := cp.hash.LoadOrStore(v.ToString(), struct{}{}); !ok {
+		if _, ok := cp.hash.LoadOrStore(Hash32(v.ToString()), struct{}{}); !ok {
 			return v
 		}
 		if rand.Int()%100 < allowDup {
@@ -223,7 +223,7 @@ func (cp *Corpus) Ban(ps [][]uint64) {
 	cp.bmu.Lock()
 	defer cp.bmu.Unlock()
 	for _, p := range ps {
-		s := fmt.Sprintf("{%v, %v}", p[0], p[1])
+		s := Hash32(fmt.Sprintf("{%v, %v}", p[0], p[1]))
 		if _, ok := cp.ban[s]; ok {
 			continue
 		}
@@ -245,7 +245,7 @@ func (cp *Corpus) Allow(ps [][]uint64) {
 	cp.bmu.Lock()
 	defer cp.bmu.Unlock()
 	for _, p := range ps {
-		s := fmt.Sprintf("{%v, %v}", p[0], p[1])
+		s := Hash32(fmt.Sprintf("{%v, %v}", p[0], p[1]))
 		cp.allow[s] = struct{}{}
 	}
 }
@@ -254,9 +254,10 @@ func (cp *Corpus) GExist(chain *Chain) bool {
 	if chain == nil {
 		return false
 	}
+	k := Hash32(chain.ToString())
 	cp.gmu.RLock()
 	defer cp.gmu.RUnlock()
-	if _, ok := cp.gm[chain.ToString()]; ok {
+	if _, ok := cp.gm[k]; ok {
 		return true
 	}
 	return false
@@ -266,9 +267,10 @@ func (cp *Corpus) GUpdate(chain *Chain) bool {
 	if cp.GExist(chain) {
 		return false
 	}
+	k := Hash32(chain.ToString())
 	cp.gmu.Lock()
 	defer cp.gmu.Unlock()
-	cp.gm[chain.ToString()] = chain
+	cp.gm[k] = chain
 	return true
 }
 

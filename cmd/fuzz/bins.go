@@ -33,8 +33,18 @@ func Bins(paths []string) {
 	if runtime.GOOS == "linux" {
 		gopath = linuxgo
 	}
+
+	limit := make(chan struct{}, 32)
+	for i := 0; i < 16; i++ {
+		limit <- struct{}{}
+	}
+
 	workpath, _ := os.Getwd()
 	dowork := func(dir string) {
+		<-limit
+		defer func() {
+			limit <- struct{}{}
+		}()
 		opath := workpath + "/testbins/" + strings.Replace(dir, "/", "_", -1)
 		cmd := fmt.Sprintf("cd %s && %s test -o %s -c .", dir, gopath, opath)
 		command := exec.Command("bash", "-c", cmd)

@@ -2,6 +2,7 @@ package fuzzer
 
 import (
 	"fmt"
+	"hash/fnv"
 	"toolkit/pkg"
 	"toolkit/pkg/feedback"
 )
@@ -27,4 +28,10 @@ func ColorCovered(covlog string, c *Chain) (string, *Chain) {
 		}
 	}
 	return schedres, covered
+}
+
+func Hash32(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 }

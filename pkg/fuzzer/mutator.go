@@ -19,9 +19,11 @@ func (m *Mutator) mutate(chain *Chain, energy int) ([]*Chain, map[uint64]map[uin
 	// TODO : energy
 	gs := m.mutateg(chain, energy)
 	ht := make(map[uint64]map[uint64]struct{})
-	for _, g := range gs {
-		m.mutatet(g, ht)
-	}
+
+	/*
+		for _, g := range gs {
+			m.mutatet(g, ht)
+		}*/
 	return gs, ht
 }
 

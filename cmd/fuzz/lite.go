@@ -33,8 +33,10 @@ func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker 
 	fmt.Printf("[FUZZER] Start %s\n", bin)
 	var cnt, total int
 	if fn != "" {
-		go dowork(bin, fn)
-		total = 1
+		for i := 0; i < maxworker; i++ {
+			go dowork(bin, fn)
+		}
+		total = maxworker
 	} else {
 		tests := ListTests(bin)
 		for _, test := range tests {
