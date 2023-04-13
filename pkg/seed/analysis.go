@@ -25,6 +25,8 @@ func RandomSeed(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	}}
 }
 
+var MaxSeed = 50
+
 func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 	//Same object operated in different routines
 	visit := make(map[string]*pkg.Pair, 0)
@@ -45,6 +47,12 @@ func SODRAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 					}
 					visit[pair.ToString()] = pair
 				}
+				if len(visit) > MaxSeed {
+					break
+				}
+			}
+			if len(visit) > MaxSeed {
+				break
 			}
 		}
 	}
@@ -94,6 +102,13 @@ func SRDOAnalysis(m map[uint64][]feedback.OpAndStatus) []*pkg.Pair {
 											},
 										}
 										visit[p.ToString()] = p
+										if len(visit) > MaxSeed {
+											res := make([]*pkg.Pair, 0)
+											for _, v := range visit {
+												res = append(res, v)
+											}
+											return res
+										}
 									}
 								}
 							}

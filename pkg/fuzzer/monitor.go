@@ -222,6 +222,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
 				}
 				corpus.Update(ncs, hts)
+				fncov.UpdateR(schedcov)
 			}
 			quit = cfg.MaxQuit
 		} else {

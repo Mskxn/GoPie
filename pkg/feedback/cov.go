@@ -74,15 +74,15 @@ func (s Status) ToString() string {
 type Cov struct {
 	// ps map[string]fuzzer.Pair
 	cs map[OpID]Status
-	// op to type, using for t mutation
-	ts map[OpID]uint64
 	// the ops next to each op
 	orders map[uint64]map[uint64]struct{}
+	rel    map[uint64]map[uint64]struct{}
 
 	mu sync.Mutex
 
 	// for orders
 	omu sync.Mutex
+	rmu sync.Mutex
 }
 
 var GlobalCov *Cov
@@ -103,7 +103,7 @@ func NewCov() *Cov {
 	cov := Cov{}
 	// cov.ps = make(map[string]fuzzer.Pair)
 	cov.cs = make(map[OpID]Status)
-	cov.ts = make(map[OpID]uint64)
+	cov.rel = make(map[uint64]map[uint64]struct{})
 	cov.orders = make(map[uint64]map[uint64]struct{})
 	return &cov
 }
@@ -136,21 +136,6 @@ func (c *Cov) ToString() string {
 	return pairs + "\n" + cs + "\n" + score + "\n"
 }
 
-/*
-func (c *Cov) UpdateP(k string, pair fuzzer.Pair) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if k == "" {
-		k = pair.ToString()
-	}
-	if _, ok := c.ps[k]; !ok {
-		c.ps[k] = pair
-		return true
-	}
-	return false
-}
-*/
-
 func (c *Cov) GetStatus(k OpID) (Status, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -173,30 +158,8 @@ func (c *Cov) UpdateC(k OpID, v Status) bool {
 	return false
 }
 
-func (c *Cov) UpdateT(k OpID, t uint64) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.ts[k] = t
-	return false
-}
-
-func (c *Cov) GetTyp(k OpID) (uint64, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if v, ok := c.ts[k]; ok {
-		return v, true
-	}
-	return 0, false
-}
-
 func (c *Cov) Merge(cc *Cov) bool {
 	var interesting bool = false
-
-	for k, v := range cc.ts {
-		if c.UpdateT(k, v) {
-			interesting = true
-		}
-	}
 
 	for k, v := range cc.cs {
 		if c.UpdateC(k, v) {
@@ -248,52 +211,28 @@ func (c *Cov) Next(opid uint64) []uint64 {
 	return nil
 }
 
-func (c *Cov) NextTyp(opid uint64, typ uint64, visit map[uint64]struct{}) (uint64, bool) {
-	if visit == nil {
-		visit = make(map[uint64]struct{}, 0)
-	}
-
-	if _, ok := visit[opid]; ok {
-		return 0, false
-	}
-
-	nexts := c.Next(opid)
-	for _, next := range nexts {
-		if t, ok := c.GetTyp(OpID(next)); ok && (t&typ != 0) {
-			return next, true
-		} else {
-			visit[next] = struct{}{}
-			if v, ok := c.NextTyp(next, typ, visit); ok {
-				return v, true
-			}
+func (c *Cov) NextR(opid uint64) []uint64 {
+	c.omu.Lock()
+	defer c.omu.Unlock()
+	if v, ok := c.rel[opid]; ok {
+		res := make([]uint64, 0)
+		for k, _ := range v {
+			res = append(res, k)
 		}
+		return res
 	}
-	return 0, false
+	return nil
 }
 
-func (c *Cov) NextStatus(opid uint64, st uint64, visit map[uint64]struct{}) (uint64, bool) {
-	if visit == nil {
-		visit = make(map[uint64]struct{}, 0)
-	}
-
-	if _, ok := visit[opid]; ok {
-		return 0, false
-	}
-
-	nexts := c.Next(opid)
-	for _, next := range nexts {
-		if s, ok := c.GetStatus(OpID(next)); ok {
-			if s.ToU64()&st != 0 {
-				return next, false
-			}
-		} else {
-			visit[next] = struct{}{}
-			if v, ok := c.NextStatus(next, st, visit); ok {
-				return v, false
-			}
+func (c *Cov) UpdateR(covered [][]uint64) {
+	c.rmu.Lock()
+	defer c.rmu.Unlock()
+	for _, v := range covered {
+		if _, ok := c.rel[v[0]]; !ok {
+			c.rel[v[0]] = make(map[uint64]struct{})
 		}
+		c.rel[v[0]][v[1]] = struct{}{}
 	}
-	return 0, false
 }
 
 func (c *Cov) UpdateO(opid uint64, next uint64) {

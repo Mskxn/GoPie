@@ -175,15 +175,15 @@ func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 		return
 	}
 	if is_attack {
-		for i := 0; i < MAXATTACKTRY; i++ {
-			pid, _ := config.attackmap[id]
-			_, ok := event.Load(pid)
-			if ok {
-				return
-			} else {
-				runtime.Gosched()
-			}
-		}
+		//		for i := 0; i < MAXATTACKTRY; i++ {
+		//			pid, _ := config.attackmap[id]
+		//			_, ok := event.Load(pid)
+		//			if ok {
+		//				return
+		//			} else {
+		//				runtime.Gosched()
+		//			}
+		//		}
 		return
 	}
 	pid := config.findPrev(id)
@@ -221,16 +221,16 @@ func InstMutexBF(id uint64, o any) {
 		return
 	}
 	if is_attack {
-		for i := 0; i < MAXATTACKTRY; i++ {
-			pid, _ := config.attackmap[id]
-			_, ok := event.Load(pid)
-			if ok {
-				return
-			} else {
-				runtime.Gosched()
-			}
-		}
-		return
+		//	for i := 0; i < MAXATTACKTRY; i++ {
+		//		pid, _ := config.attackmap[id]
+		//		_, ok := event.Load(pid)
+		//		if ok {
+		//			return
+		//		} else {
+		//			runtime.Gosched()
+		//		}
+		//	}
+		//	return
 	}
 	for {
 		pid := config.findPrev(id)

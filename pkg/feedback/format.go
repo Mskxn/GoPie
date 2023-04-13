@@ -194,10 +194,6 @@ func Log2Cov(ops []OpAndStatus) *Cov {
 		cov.UpdateO(ops[i].Opid, ops[j].Opid)
 	}
 
-	for i := 0; i < l; i++ {
-		cov.UpdateT(OpID(ops[i].Opid), ops[i].Typ)
-	}
-
 	for _, op := range ops {
 		status := op.status.IsCritical()
 		if status != 0 {
