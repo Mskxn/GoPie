@@ -8,6 +8,7 @@ import (
 	"time"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
+	"toolkit/pkg/seed"
 )
 
 var (
@@ -184,23 +185,23 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		if atomic.LoadInt32(&m.etimes) < int32(cfg.InitTurnCnt) {
 			init = true
 
-			//if cfg.UseFeedBack {
-			//	seeds := seed.SRDOAnalysis(op_st)
-			//	seeds = append(seeds, seed.SODRAnalysis(op_st)...)
-			//	if debug {
-			//		if len(seeds) != 0 {
-			//			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
-			//		}
-			//	}
-			//	corpus.GUpdateSeed(seeds)
-			// }
-			// seeds := seed.RandomSeed(op_st)
+			if cfg.UseFeedBack {
+				seeds := seed.SRDOAnalysis(op_st)
+				seeds = append(seeds, seed.SODRAnalysis(op_st)...)
+				if debug {
+					if len(seeds) != 0 {
+						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
+					}
+				}
+				corpus.GUpdateSeed(seeds)
+			}
+			seeds := seed.RandomSeed(op_st)
 			// if debug {
 			// 	if len(seeds) != 0 {
 			//		cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
 			//		}
 			// }
-			// corpus.GUpdateSeed(seeds)
+			corpus.GUpdateSeed(seeds)
 		}
 		ok := fncov.Merge(cov)
 		if (init || ok || !cfg.UseFeedBack) && inputc != "empty chain" && coveredinput.Len() != 0 {
