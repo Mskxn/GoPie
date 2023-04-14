@@ -193,10 +193,23 @@ func Log2Cov(info map[uint64][]OpAndStatus) *Cov {
 		l := len(ops)
 		for i := 0; i < l-1; i++ {
 			if ops[i].Gid != ops[i+1].Gid {
-				cov.rel[ops[i].Opid][ops[i+1].Opid] = struct{}{}    // same object on different goroutines
+				if _, ok := cov.rel[ops[i].Opid]; !ok {
+					cov.rel[ops[i].Opid] = make(map[uint64]struct{})
+				}
+				if _, ok := cov.rel[ops[i+1].Opid]; !ok {
+					cov.rel[ops[i+1].Opid] = make(map[uint64]struct{})
+				}
+				if _, ok := cov.orders[ops[i].Opid]; !ok {
+					cov.orders[ops[i].Opid] = make(map[uint64]struct{})
+				}
+				cov.rel[ops[i].Opid][ops[i+1].Opid] = struct{}{} // same object on different goroutines
+				cov.rel[ops[i+1].Opid][ops[i].Opid] = struct{}{}
 				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // concurrnecy orders
 			}
 			if ops[i].Gid == ops[i+1].Gid {
+				if _, ok := cov.orders[ops[i].Opid]; !ok {
+					cov.orders[ops[i].Opid] = make(map[uint64]struct{})
+				}
 				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // control flow orders
 			}
 		}
