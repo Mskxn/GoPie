@@ -72,7 +72,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	dowork := func() {
 		for {
 			var c, ht *Chain
-			if cfg.UseMutate {
+			if cfg.UseFeedBack { // if no feedback, no seed and mutation
 				c, ht = corpus.Get()
 			} else {
 				corpus.IncFetchCnt()
@@ -163,11 +163,11 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				}
 			}
 		}
-		op_st, _ := feedback.ParseLog(ctx.Out.Trace)
+		op_st, all := feedback.ParseLog(ctx.Out.Trace)
 		schedcov := feedback.ParseCovered(ctx.Out.O)
 		schedres, coveredinput := ColorCovered(ctx.Out.O, ctx.In.c)
 
-		cov := feedback.Log2Cov(op_st)
+		cov := feedback.Log2Cov(op_st, all)
 		score := cov.Score(cfg.UseStates)
 		if len(schedcov) != 0 && cfg.UseCoveredSched {
 			score += (len(schedcov) / (ctx.In.c.Len())) * len(schedcov) * 10
@@ -184,7 +184,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		var init bool
 		if atomic.LoadInt32(&m.etimes) < int32(cfg.InitTurnCnt) {
 			init = true
-			if cfg.UseAnalysis {
+			if cfg.UseAnalysis && cfg.UseFeedBack {
 				seeds := seed.SRDOAnalysis(op_st)
 				seeds = append(seeds, seed.SODRAnalysis(op_st)...)
 				if debug {
@@ -194,13 +194,13 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				}
 				corpus.GUpdateSeed(seeds)
 			}
-			seeds := seed.RandomSeed(op_st)
-			if debug {
-				if len(seeds) != 0 {
-					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
-				}
-			}
-			corpus.GUpdateSeed(seeds)
+			// seeds := seed.RandomSeed(op_st)
+			// if debug {
+			// 	if len(seeds) != 0 {
+			//		cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
+			//		}
+			// }
+			// corpus.GUpdateSeed(seeds)
 		}
 		ok := fncov.Merge(cov)
 		if (init || ok) && inputc != "empty chain" && coveredinput.Len() != 0 {
@@ -208,10 +208,15 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
 			}
-			m := Mutator{Cov: fncov}
-			var ncs []*Chain
-			var hts map[uint64]map[uint64]struct{}
-			if cfg.UseFeedBack {
+			if cfg.UseMutate {
+				var m Mutator
+				if cfg.UseFeedBack {
+					m = Mutator{Cov: fncov}
+				} else {
+					m = Mutator{Cov: feedback.NewCov()}
+				}
+				var ncs []*Chain
+				var hts map[uint64]map[uint64]struct{}
 				if cfg.UseCoveredSched {
 					ncs, hts = m.mutate(coveredinput, energy)
 				} else {

@@ -186,10 +186,9 @@ func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 }
 
 // info is object map to execution orders
-func Log2Cov(info map[uint64][]OpAndStatus) *Cov {
+func Log2Cov(info map[uint64][]OpAndStatus, allops []OpAndStatus) *Cov {
 	cov := NewCov()
-
-	for _, ops := range info {
+	for _, ops := range info { // same primitive
 		l := len(ops)
 		for i := 0; i < l-1; i++ {
 			if ops[i].Gid != ops[i+1].Gid {
@@ -206,18 +205,21 @@ func Log2Cov(info map[uint64][]OpAndStatus) *Cov {
 				cov.rel[ops[i+1].Opid][ops[i].Opid] = struct{}{}
 				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // concurrnecy orders
 			}
-			if ops[i].Gid == ops[i+1].Gid {
-				if _, ok := cov.orders[ops[i].Opid]; !ok {
-					cov.orders[ops[i].Opid] = make(map[uint64]struct{})
-				}
-				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // control flow orders
-			}
 		}
 		for i := 0; i < l; i++ {
 			st := ops[i].status.IsCritical()
 			if st != 0 {
 				cov.UpdateC(OpID(ops[i].Opid), ToStatus(st))
 			}
+		}
+	}
+	l := len(allops)
+	for i := 0; i < l-1; i++ {
+		if allops[i].Gid == allops[i+1].Gid {
+			if _, ok := cov.orders[allops[i].Opid]; !ok {
+				cov.orders[allops[i].Opid] = make(map[uint64]struct{})
+			}
+			cov.orders[allops[i].Opid][allops[i+1].Opid] = struct{}{} // concurrnecy orders
 		}
 	}
 	return cov
