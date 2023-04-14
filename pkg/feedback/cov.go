@@ -212,8 +212,8 @@ func (c *Cov) Next(opid uint64) []uint64 {
 }
 
 func (c *Cov) NextR(opid uint64) []uint64 {
-	c.omu.Lock()
-	defer c.omu.Unlock()
+	c.rmu.Lock()
+	defer c.rmu.Unlock()
 	if v, ok := c.rel[opid]; ok {
 		res := make([]uint64, 0)
 		for k, _ := range v {
