@@ -231,6 +231,9 @@ func (c *Cov) UpdateR(covered [][]uint64) {
 		if _, ok := c.rel[v[0]]; !ok {
 			c.rel[v[0]] = make(map[uint64]struct{})
 		}
+		if _, ok := c.rel[v[1]]; !ok {
+			c.rel[v[1]] = make(map[uint64]struct{})
+		}
 		c.rel[v[0]][v[1]] = struct{}{}
 		c.rel[v[1]][v[0]] = struct{}{}
 	}
