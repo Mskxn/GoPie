@@ -59,7 +59,7 @@ func RQ2(bin string) {
 	}
 
 	go oneCase("FULL", true, true, true, true, true)
-	go oneCase("-An", false, true, true, true, true)
+	// go oneCase("-An", false, true, true, true, true)
 	go oneCase("-FB", true, false, true, true, true)
 	// go oneCase("-SC", true, true, false, true, true)
 	// go oneCase("-ST", true, true, true, false, true)

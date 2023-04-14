@@ -224,6 +224,26 @@ func (c *Cov) NextR(opid uint64) []uint64 {
 	return nil
 }
 
+func (c *Cov) One() (uint64, uint64) {
+	c.rmu.Lock()
+	defer c.rmu.Unlock()
+	for op1, nexts := range c.rel {
+		for op2, _ := range nexts {
+			return op1, op2
+		}
+	}
+	return 0, 0
+}
+
+func (c *Cov) OneRandom() uint64 {
+	c.rmu.Lock()
+	defer c.rmu.Unlock()
+	for op1, _ := range c.rel {
+		return op1
+	}
+	return 0
+}
+
 func (c *Cov) UpdateR(covered [][]uint64) {
 	c.rmu.Lock()
 	defer c.rmu.Unlock()

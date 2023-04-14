@@ -8,7 +8,6 @@ import (
 	"time"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
-	"toolkit/pkg/seed"
 )
 
 var (
@@ -72,7 +71,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	dowork := func() {
 		for {
 			var c, ht *Chain
-			if cfg.UseFeedBack { // if no feedback, no seed and mutation
+			if cfg.UseMutate { // if no feedback, no seed and mutation
 				c, ht = corpus.Get()
 			} else {
 				corpus.IncFetchCnt()
@@ -169,9 +168,9 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 
 		cov := feedback.Log2Cov(op_st, all)
 		score := cov.Score(cfg.UseStates)
-		if len(schedcov) != 0 && cfg.UseCoveredSched {
-			score += (len(schedcov) / (ctx.In.c.Len())) * len(schedcov) * 10
-		}
+		// if len(schedcov) != 0 && cfg.UseCoveredSched {
+		//	score += (len(schedcov) / (ctx.In.c.Len())) * len(schedcov) * 10
+		// }
 		curmax := atomic.LoadInt32(maxscore)
 		if int32(score) > curmax {
 			atomic.StoreInt32(maxscore, int32(score))
@@ -184,16 +183,17 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		var init bool
 		if atomic.LoadInt32(&m.etimes) < int32(cfg.InitTurnCnt) {
 			init = true
-			if cfg.UseAnalysis && cfg.UseFeedBack {
-				seeds := seed.SRDOAnalysis(op_st)
-				seeds = append(seeds, seed.SODRAnalysis(op_st)...)
-				if debug {
-					if len(seeds) != 0 {
-						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
-					}
-				}
-				corpus.GUpdateSeed(seeds)
-			}
+
+			//if cfg.UseFeedBack {
+			//	seeds := seed.SRDOAnalysis(op_st)
+			//	seeds = append(seeds, seed.SODRAnalysis(op_st)...)
+			//	if debug {
+			//		if len(seeds) != 0 {
+			//			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
+			//		}
+			//	}
+			//	corpus.GUpdateSeed(seeds)
+			// }
 			// seeds := seed.RandomSeed(op_st)
 			// if debug {
 			// 	if len(seeds) != 0 {
@@ -203,24 +203,20 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			// corpus.GUpdateSeed(seeds)
 		}
 		ok := fncov.Merge(cov)
-		if (init || ok) && inputc != "empty chain" && coveredinput.Len() != 0 {
+		if (init || ok || !cfg.UseFeedBack) && inputc != "empty chain" && coveredinput.Len() != 0 {
 			corpus.IncSchedCnt(schedres)
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
 			}
 			if cfg.UseMutate {
 				var m Mutator
-				if cfg.UseFeedBack {
-					m = Mutator{Cov: fncov}
-				} else {
-					m = Mutator{Cov: feedback.NewCov()}
-				}
+				m = Mutator{Cov: fncov}
 				var ncs []*Chain
 				var hts map[uint64]map[uint64]struct{}
-				if cfg.UseCoveredSched {
+				if cfg.UseFeedBack {
 					ncs, hts = m.mutate(coveredinput, energy)
 				} else {
-					ncs, hts = m.mutate(ctx.In.c, energy)
+					ncs, hts = m.random(ctx.In.c, 100)
 				}
 				if debug {
 					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())

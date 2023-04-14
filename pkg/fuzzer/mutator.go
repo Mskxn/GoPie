@@ -27,6 +27,18 @@ func (m *Mutator) mutate(chain *Chain, energy int) ([]*Chain, map[uint64]map[uin
 	return gs, ht
 }
 
+func (m *Mutator) random(chain *Chain, energy int) ([]*Chain, map[uint64]map[uint64]struct{}) {
+	// TODO : energy
+	gs := m.randomg(chain, energy)
+	ht := make(map[uint64]map[uint64]struct{})
+
+	/*
+		for _, g := range gs {
+			m.mutatet(g, ht)
+		}*/
+	return gs, ht
+}
+
 func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	// TODO
 	if energy > 100 {
@@ -35,11 +47,14 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	if chain == nil {
 		return []*Chain{}
 	}
-	if chain.Len() == 0 {
-		return []*Chain{}
-	}
 	res := make([]*Chain, 0)
 	set := make(map[string]*Chain, 0)
+
+	if chain.Len() == 0 {
+		op1, op2 := m.Cov.One()
+		chain = &Chain{[]*pkg.Pair{pkg.NewPair(op1, op2)}}
+	}
+
 	set[chain.ToString()] = chain
 	if chain.Len() == 1 {
 		nc := &Chain{[]*pkg.Pair{&pkg.Pair{chain.T().Next, chain.T().Prev}}}
@@ -76,6 +91,75 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 				nc := chain.Copy()
 				nc.add(GetGlobalCorpus().GetC())
 				tset[nc.ToString()] = nc
+			}
+			for k, v := range tset {
+				set[k] = v
+			}
+		}
+		if len(set) > MUTATEBOUND {
+			break
+		}
+		// up to 50%
+		if (rand.Int() % 200) < energy {
+			break
+		}
+	}
+
+	// merge two chain
+	// TODO
+	for _, v := range set {
+		if m.filter(v) {
+			res = append(res, v)
+		}
+	}
+
+	return res
+}
+
+func (m *Mutator) randomg(chain *Chain, energy int) []*Chain {
+	// TODO
+	if energy > 100 {
+		energy = 100
+	}
+	if chain == nil {
+		return []*Chain{}
+	}
+	res := make([]*Chain, 0)
+	set := make(map[string]*Chain, 0)
+
+	if chain.Len() == 0 {
+		op1 := m.Cov.OneRandom()
+		op2 := m.Cov.OneRandom()
+		chain = &Chain{[]*pkg.Pair{pkg.NewPair(op1, op2)}}
+	}
+
+	set[chain.ToString()] = chain
+	if chain.Len() == 1 {
+		nc := &Chain{[]*pkg.Pair{&pkg.Pair{chain.T().Next, chain.T().Prev}}}
+		set[nc.ToString()] = nc
+	}
+	for {
+		for _, chain := range set {
+			tset := make(map[string]*Chain, 0)
+			// reduce the length
+			if chain.Len() >= 2 {
+				nc := chain.Copy()
+				nc.pop()
+				tset[nc.ToString()] = nc
+				nc2 := chain.Copy()
+				nc2.item = nc2.item[1:len(nc2.item)]
+				tset[nc2.ToString()] = nc2
+			}
+
+			// increase the length
+			if chain.Len() <= BOUND {
+				if rand.Int()%2 == 1 {
+					lastopid := chain.T().Next.Opid
+					rel := m.Cov.OneRandom()
+					nc := chain.Copy()
+					nc.add(pkg.NewPair(lastopid, rel))
+					tset[nc.ToString()] = nc
+				}
 			}
 			for k, v := range tset {
 				set[k] = v
