@@ -185,19 +185,26 @@ func ParseLog(s string) (map[uint64][]OpAndStatus, []OpAndStatus) {
 	return m, orders
 }
 
-func Log2Cov(ops []OpAndStatus) *Cov {
+// info is object map to execution orders
+func Log2Cov(info map[uint64][]OpAndStatus) *Cov {
 	cov := NewCov()
 
-	l := len(ops)
-	for i := 0; i < l-1; i++ {
-		j := i + 1
-		cov.UpdateO(ops[i].Opid, ops[j].Opid)
-	}
-
-	for _, op := range ops {
-		status := op.status.IsCritical()
-		if status != 0 {
-			cov.UpdateC(OpID(op.Opid), ToStatus(status))
+	for _, ops := range info {
+		l := len(ops)
+		for i := 0; i < l-1; i++ {
+			if ops[i].Gid != ops[i+1].Gid {
+				cov.rel[ops[i].Opid][ops[i+1].Opid] = struct{}{}    // same object on different goroutines
+				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // concurrnecy orders
+			}
+			if ops[i].Gid == ops[i+1].Gid {
+				cov.orders[ops[i].Opid][ops[i+1].Opid] = struct{}{} // control flow orders
+			}
+		}
+		for i := 0; i < l; i++ {
+			st := ops[i].status.IsCritical()
+			if st != 0 {
+				cov.UpdateC(OpID(ops[i].Opid), ToStatus(st))
+			}
 		}
 	}
 	return cov
