@@ -18,9 +18,8 @@ var (
 )
 
 type Monitor struct {
-	etimes   int32
-	max      int32
-	maxscore int
+	etimes int32
+	max    int32
 }
 
 type RunContext struct {
@@ -34,7 +33,6 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	if m.max == int32(0) {
 		m.max = int32(cfg.MaxExecution)
 	}
-	m.maxscore = 10
 	switch cfg.LogLevel {
 	case "debug":
 		debug = true
@@ -45,6 +43,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	}
 	var fncov *feedback.Cov
 	var corpus *Corpus
+	var maxscore *int32
 
 	if visitor.V_cov == nil {
 		fncov = feedback.NewCov()
@@ -57,8 +56,13 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	} else {
 		corpus = visitor.V_corpus
 	}
-	visitor.V_corpus = corpus
-	visitor.V_cov = fncov
+
+	if visitor.V_score == nil {
+		score := int32(10)
+		maxscore = &score
+	} else {
+		maxscore = visitor.V_score
+	}
 
 	wid := atomic.AddUint32(&workerID, 1)
 	ch := make(chan RunContext, cfg.MaxWorker*10)
@@ -124,19 +128,14 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			return false, []string{}
 		}
 		ctx := <-ch
-		var inputc, htc string
+		var inputc string
 		if ctx.In.c != nil {
 			inputc = ctx.In.c.ToString()
 		} else {
 			inputc = "empty chain"
 		}
-		if ctx.In.ht != nil {
-			htc = ctx.In.ht.ToString()
-		} else {
-			htc = "empty chain"
-		}
 		if debug {
-			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] Input: %s\nAttack: %s", time.Now().String(), wid, inputc, htc)
+			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] Input: %s", time.Now().String(), wid, inputc)
 		}
 		// global corpus is not thread safe now
 		if ctx.Out.Err != nil {
@@ -148,7 +147,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				if !exist {
 					detail := []string{inputc, strconv.FormatInt(int64(atomic.LoadInt32(&m.etimes)), 10), ctx.Out.O}
 					if normal {
-						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s\n%s\n%s\n%s", time.Now().String(), cfg.BugSet.Size(), inputc, htc, detail[1], ctx.Out.O)
+						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s\n%s\n%s", time.Now().String(), cfg.BugSet.Size(), inputc, detail[1], ctx.Out.O)
 					}
 					if debug {
 						topfs := ""
@@ -164,20 +163,20 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				}
 			}
 		}
-		op_st, orders := feedback.ParseLog(ctx.Out.Trace)
+		op_st, _ := feedback.ParseLog(ctx.Out.Trace)
 		schedcov := feedback.ParseCovered(ctx.Out.O)
 		schedres, coveredinput := ColorCovered(ctx.Out.O, ctx.In.c)
-		attackres, _ := ColorCovered(ctx.Out.O, ctx.In.ht)
 
-		cov := feedback.Log2Cov(orders)
+		cov := feedback.Log2Cov(op_st)
 		score := cov.Score(cfg.UseStates)
 		if len(schedcov) != 0 && cfg.UseCoveredSched {
 			score += (len(schedcov) / (ctx.In.c.Len())) * len(schedcov) * 10
 		}
-		if score > m.maxscore {
-			m.maxscore = score
+		curmax := atomic.LoadInt32(maxscore)
+		if int32(score) > curmax {
+			atomic.StoreInt32(maxscore, int32(score))
 		}
-		energy := int(float64(score+1) / float64(m.maxscore+1) * 100)
+		energy := int(float64(score+1) / float64(curmax) * 100)
 		if debug {
 			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] score : %v\tenergy %v", time.Now().String(), wid, score, energy)
 		}
@@ -207,7 +206,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		if (init || ok) && inputc != "empty chain" && coveredinput.Len() != 0 {
 			corpus.IncSchedCnt(schedres)
 			if info {
-				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s\t Attack:%s", time.Now().String(), wid, score, m.maxscore, schedres, attackres)
+				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
 			}
 			m := Mutator{Cov: fncov}
 			var ncs []*Chain

@@ -29,6 +29,9 @@ func (m *Mutator) mutate(chain *Chain, energy int) ([]*Chain, map[uint64]map[uin
 
 func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 	// TODO
+	if energy > 100 {
+		energy = 100
+	}
 	if chain == nil {
 		return []*Chain{}
 	}

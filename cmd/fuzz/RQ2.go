@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
@@ -23,11 +24,13 @@ func RQ2(bin string) {
 		newBugset := bug.NewBugSet()
 		sharedCov := feedback.NewCov()
 		sharedCorpus := fuzzer.NewCorpus()
+		sharedScore := int32(10)
 		logCh := make(chan string, 10000)
 		for _, test := range tests {
 			v := &fuzzer.Visitor{
 				V_cov:    sharedCov,
 				V_corpus: sharedCorpus,
+				V_score:  &sharedScore,
 			}
 
 			newCfg := fuzzer.NewConfig(bin, test, logCh, newBugset, "normal")
@@ -50,15 +53,16 @@ func RQ2(bin string) {
 			pairsum, statesum := sharedCov.Size()
 			coveredsched := sharedCorpus.SchedCnt()
 			totalrun := sharedCorpus.FetchCnt()
-			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\n", id, pairsum, statesum, coveredsched, totalrun)
+			score := atomic.LoadInt32(&sharedScore)
+			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\t%v\n", id, pairsum, statesum, coveredsched, score, totalrun)
 		}
 	}
 
 	go oneCase("FULL", true, true, true, true, true)
 	go oneCase("-An", false, true, true, true, true)
 	go oneCase("-FB", true, false, true, true, true)
-	go oneCase("-SC", true, true, false, true, true)
-	go oneCase("-ST", true, true, true, false, true)
+	// go oneCase("-SC", true, true, false, true, true)
+	// go oneCase("-ST", true, true, true, false, true)
 	go oneCase("-MU", true, true, true, true, false)
 
 	for {
