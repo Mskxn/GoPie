@@ -88,9 +88,9 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 					}
 				}
 			} else {
-				nc := chain.Copy()
-				nc.add(GetGlobalCorpus().GetC())
-				tset[nc.ToString()] = nc
+				// nc := chain.Copy()
+				// nc.add(GetGlobalCorpus().GetC())
+				// tset[nc.ToString()] = nc
 			}
 			for k, v := range tset {
 				set[k] = v
