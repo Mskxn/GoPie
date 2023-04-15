@@ -38,7 +38,7 @@ func RQ2(bin string) {
 			newCfg.UseStates = usestate
 			newCfg.UseCoveredSched = usesched
 			newCfg.UseFeedBack = usefeedback
-			newCfg.UseStates = usemutate
+			newCfg.UseMutate = usemutate
 			newCfg.MaxQuit = newCfg.MaxExecution
 
 			go dowork(v, newCfg)
