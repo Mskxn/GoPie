@@ -15,13 +15,12 @@ var (
 	debug  = false
 	info   = false
 	normal = true
-
-	doinit = uint32(1)
 )
 
 type Monitor struct {
 	etimes int32
 	max    int32
+	doinit uint32
 }
 
 type RunContext struct {
@@ -35,6 +34,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	if m.max == int32(0) {
 		m.max = int32(cfg.MaxExecution)
 	}
+	m.doinit = uint32(1)
 	switch cfg.LogLevel {
 	case "debug":
 		debug = true
@@ -75,7 +75,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		for {
 			var c, ht *Chain
 			c, ht = corpus.Get()
-			if !cfg.UseMutate || atomic.LoadUint32(&doinit) == uint32(1) { // if no feedback, no seed and mutation
+			if !cfg.UseMutate || atomic.LoadUint32(&m.doinit) == uint32(1) { // if no feedback, no seed and mutation
 				c = nil
 				ht = nil
 			}
@@ -184,9 +184,9 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] score : %v\tenergy %v", time.Now().String(), wid, score, energy)
 		}
 
-		init := atomic.LoadUint32(&doinit) == 1
+		init := atomic.LoadUint32(&m.doinit) == 1
 		if init && atomic.LoadInt32(&m.etimes) > int32(cfg.InitTurnCnt) {
-			atomic.StoreUint32(&doinit, 0)
+			atomic.StoreUint32(&m.doinit, 0)
 			if cfg.UseMutate {
 				fmt.Printf("[MUTATE] SWITCH TO MUTATION MODE, CURRENT INITCNT %v\n", cfg.InitTurnCnt)
 			}
