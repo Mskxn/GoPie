@@ -209,21 +209,23 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
 			}
-			var mu Mutator
-			mu = Mutator{Cov: fncov}
-			var ncs []*Chain
-			var hts map[uint64]map[uint64]struct{}
-			if cfg.UseFeedBack {
-				ncs, hts = mu.mutate(coveredinput, energy)
-			} else {
-				ncs, hts = mu.random(ctx.In.c, 100)
-			}
-			if debug {
-				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
-			}
-			corpus.Update(ncs, hts)
 			fncov.UpdateR(schedcov)
 			quit = cfg.MaxQuit
+			go func() { // do mutation in a single routine, check the concurrency safety of corpus
+				var mu Mutator
+				mu = Mutator{Cov: fncov}
+				var ncs []*Chain
+				var hts map[uint64]map[uint64]struct{}
+				if cfg.UseFeedBack {
+					ncs, hts = mu.mutate(coveredinput, energy)
+				} else {
+					ncs, hts = mu.random(ctx.In.c, 100)
+				}
+				if debug {
+					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
+				}
+				corpus.Update(ncs, hts) // concurrency safe
+			}()
 		} else {
 			quit -= 1
 			if quit <= 0 {
