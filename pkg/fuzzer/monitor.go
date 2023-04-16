@@ -188,16 +188,16 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		}
 		init := atomic.LoadUint32(&doinit) == 1
 		if init {
-			if cfg.UseFeedBack {
-				seeds := seed.SRDOAnalysis(op_st)
-				seeds = append(seeds, seed.SODRAnalysis(op_st)...)
-				if debug {
-					if len(seeds) != 0 {
-						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
-					}
-				}
-				corpus.GUpdateSeed(seeds)
-			}
+			//if cfg.UseFeedBack {
+			//	seeds := seed.SRDOAnalysis(op_st)
+			//	seeds = append(seeds, seed.SODRAnalysis(op_st)...)
+			//	if debug {
+			//		if len(seeds) != 0 {
+			//			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] %v SEEDS %s ...", time.Now().String(), wid, len(seeds), seeds[0].ToString())
+			//		}
+			//	}
+			//	corpus.GUpdateSeed(seeds)
+			//}
 			seeds := seed.RandomSeed(op_st)
 			// if debug {
 			// 	if len(seeds) != 0 {
