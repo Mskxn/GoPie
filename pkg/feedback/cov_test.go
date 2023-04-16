@@ -7,21 +7,20 @@ import (
 )
 
 func TestLog2Cov(t *testing.T) {
-	_, orders := ParseLog(log)
-	cov := Log2Cov(orders)
+	op_st, allops := ParseLog(log)
+	cov := Log2Cov(op_st, allops)
 	print(cov.ToString())
 }
 
 func TestCovUpdate(t *testing.T) {
-	_, orders := ParseLog(testdata.Log)
-	c := Log2Cov(orders)
+	op_st, allops := ParseLog(testdata.Log)
+	c := Log2Cov(op_st, allops)
 	fmt.Print(c.ToString())
 
 	c.UpdateC(OpID(841813590024), ToStatus(ChanFull))
 	c.UpdateC(OpID(1337), ToStatus(ChanEmpty))
 
-	c.UpdateO(1, 2)
+	c.UpdateO1(1, 2)
 
-	c.UpdateT(OpID(841813590024), Chansend)
 	fmt.Print(c.ToString())
 }

@@ -51,11 +51,11 @@ func RQ2(bin string) {
 		ticket := time.NewTicker(10 * time.Second)
 		for {
 			<-ticket.C
-			pairsum, statesum := sharedCov.Size()
+			o1sum, _, statesum := sharedCov.Size()
 			coveredsched := sharedCorpus.SchedCnt()
 			totalrun := sharedCorpus.FetchCnt()
 			score := atomic.LoadInt32(&sharedScore)
-			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\t%v\n", id, pairsum, statesum, coveredsched, score, totalrun)
+			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\t%v\n", id, o1sum, statesum, coveredsched, score, totalrun)
 		}
 	}
 
