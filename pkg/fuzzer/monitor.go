@@ -72,10 +72,10 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	dowork := func() {
 		for {
 			var c, ht *Chain
-			if cfg.UseMutate { // if no feedback, no seed and mutation
-				c, ht = corpus.Get()
-			} else {
-				corpus.IncFetchCnt()
+			c, ht = corpus.Get()
+			if !cfg.UseMutate { // if no feedback, no seed and mutation
+				c = nil
+				ht = nil
 			}
 			e := Executor{}
 			in := Input{
@@ -209,22 +209,20 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
 			}
-			if cfg.UseMutate {
-				var m Mutator
-				m = Mutator{Cov: fncov}
-				var ncs []*Chain
-				var hts map[uint64]map[uint64]struct{}
-				if cfg.UseFeedBack {
-					ncs, hts = m.mutate(coveredinput, energy)
-				} else {
-					ncs, hts = m.random(ctx.In.c, 100)
-				}
-				if debug {
-					cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
-				}
-				corpus.Update(ncs, hts)
-				fncov.UpdateR(schedcov)
+			var mu Mutator
+			mu = Mutator{Cov: fncov}
+			var ncs []*Chain
+			var hts map[uint64]map[uint64]struct{}
+			if cfg.UseFeedBack {
+				ncs, hts = mu.mutate(coveredinput, energy)
+			} else {
+				ncs, hts = mu.random(ctx.In.c, 100)
 			}
+			if debug {
+				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] MUTATE %s", time.Now().String(), wid, coveredinput.ToString())
+			}
+			corpus.Update(ncs, hts)
+			fncov.UpdateR(schedcov)
 			quit = cfg.MaxQuit
 		} else {
 			quit -= 1
