@@ -15,6 +15,8 @@ var (
 	debug  = false
 	info   = false
 	normal = true
+
+	doinit = uint32(1)
 )
 
 type Monitor struct {
@@ -73,7 +75,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		for {
 			var c, ht *Chain
 			c, ht = corpus.Get()
-			if !cfg.UseMutate { // if no feedback, no seed and mutation
+			if !cfg.UseMutate || atomic.LoadUint32(&doinit) == uint32(1) { // if no feedback, no seed and mutation
 				c = nil
 				ht = nil
 			}
@@ -181,10 +183,11 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] score : %v\tenergy %v", time.Now().String(), wid, score, energy)
 		}
 
-		var init bool
-		if atomic.LoadInt32(&m.etimes) < int32(cfg.InitTurnCnt) {
-			init = true
-
+		if atomic.LoadInt32(&m.etimes) > int32(cfg.InitTurnCnt) {
+			atomic.StoreUint32(&doinit, 0)
+		}
+		init := atomic.LoadUint32(&doinit) == 1
+		if init {
 			if cfg.UseFeedBack {
 				seeds := seed.SRDOAnalysis(op_st)
 				seeds = append(seeds, seed.SODRAnalysis(op_st)...)
@@ -211,6 +214,12 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			}
 			fncov.UpdateR(schedcov)
 			quit = cfg.MaxQuit
+			if init { // init can get more coverage, do init instead of mutation
+				cfg.InitTurnCnt = cfg.InitTurnCnt * 2
+				if cfg.InitTurnCnt > 2000 {
+					cfg.InitTurnCnt = 2000
+				}
+			}
 			go func() { // do mutation in a single routine, check the concurrency safety of corpus
 				var mu Mutator
 				mu = Mutator{Cov: fncov}

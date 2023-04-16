@@ -30,7 +30,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	c := &Config{
 		MaxWorker:       5,
-		MaxExecution:    100000,
+		MaxExecution:    10000000000,
 		SingleCrash:     false,
 		LogLevel:        "normal",
 		UseFeedBack:     true,
@@ -40,7 +40,7 @@ func DefaultConfig() *Config {
 		UseMutate:       true,
 		TimeOut:         20,
 		RecoverTimeOut:  100,
-		InitTurnCnt:     10,
+		InitTurnCnt:     100,
 		MaxQuit:         500,
 	}
 	return c
