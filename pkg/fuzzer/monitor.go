@@ -89,7 +89,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				recovertimeout: cfg.RecoverTimeOut,
 			}
 			// _, ok := <-ticket
-			atomic.AddInt32(&m.etimes, 1)
+			// atomic.AddInt32(&m.etimes, 1)
 			timeout := time.After(1 * time.Minute)
 			done := make(chan int)
 			var o *Output
@@ -130,6 +130,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			return false, []string{}
 		}
 		ctx := <-ch
+		atomic.AddInt32(&m.etimes, 1)
 		var inputc string
 		if ctx.In.c != nil {
 			inputc = ctx.In.c.ToString()
