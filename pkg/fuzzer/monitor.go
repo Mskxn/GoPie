@@ -183,10 +183,13 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] score : %v\tenergy %v", time.Now().String(), wid, score, energy)
 		}
 
-		if atomic.LoadInt32(&m.etimes) > int32(cfg.InitTurnCnt) {
-			atomic.StoreUint32(&doinit, 0)
-		}
 		init := atomic.LoadUint32(&doinit) == 1
+		if init && atomic.LoadInt32(&m.etimes) > int32(cfg.InitTurnCnt) {
+			atomic.StoreUint32(&doinit, 0)
+			if cfg.UseMutate {
+				fmt.Printf("[MUTATE] SWITCH TO MUTATION MODE")
+			}
+		}
 		if init {
 			//if cfg.UseFeedBack {
 			//	seeds := seed.SRDOAnalysis(op_st)
@@ -214,7 +217,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			}
 			fncov.UpdateR(schedcov)
 			quit = cfg.MaxQuit
-			if init { // init can get more coverage, do init instead of mutation
+			if init && ok { // init can get more coverage, do init instead of mutation
 				cfg.InitTurnCnt = cfg.InitTurnCnt * 2
 				if cfg.InitTurnCnt > 2000 {
 					cfg.InitTurnCnt = 2000
