@@ -188,7 +188,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		if init && atomic.LoadInt32(&m.etimes) > int32(cfg.InitTurnCnt) {
 			atomic.StoreUint32(&doinit, 0)
 			if cfg.UseMutate {
-				fmt.Printf("[MUTATE] SWITCH TO MUTATION MODE")
+				fmt.Printf("[MUTATE] SWITCH TO MUTATION MODE, CURRENT INITCNT %v\n", cfg.InitTurnCnt)
 			}
 		}
 		if init {
