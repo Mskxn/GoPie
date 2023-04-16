@@ -172,10 +172,10 @@ func (cp *Corpus) IncFetchCnt() {
 func (cp *Corpus) Get() (*Chain, *Chain) {
 	// TODO
 	cp.IncFetchCnt()
-	cp.gmu.RLock()
-	defer cp.gmu.RUnlock()
+	cp.gmu.Lock()
+	defer cp.gmu.Unlock()
 	htc := &Chain{}
-	for _, v := range cp.gm {
+	for k, v := range cp.gm {
 		if _, ok := cp.hash.LoadOrStore(Hash32(v.ToString()), struct{}{}); ok {
 			if rand.Int()%100 > allowDup {
 				continue
@@ -189,6 +189,7 @@ func (cp *Corpus) Get() (*Chain, *Chain) {
 					}
 				}
 			}*/
+		delete(cp.gm, k) // reduce the size of corpus
 		return v, htc
 	}
 	return nil, nil
