@@ -9,7 +9,7 @@ import (
 	"toolkit/pkg/fuzzer"
 )
 
-func Full(path string, llevel string, maxworker int) {
+func Full(path string, llevel string, feature string, maxworker int) {
 	resCh := make(chan string, 1000)
 	logCh := make(chan string, 1000)
 
@@ -89,6 +89,12 @@ func Full(path string, llevel string, maxworker int) {
 			cfg.MaxQuit = 64
 			cfg.MaxExecution = 100000
 			cfg.LogLevel = llevel
+			if feature == "mu" {
+				cfg.UseMutate = false
+			}
+			if feature == "fb" {
+				cfg.UseFeedBack = false
+			}
 			go fuzzfn(bin2vst[bin], cfg)
 			total += 1
 		}
