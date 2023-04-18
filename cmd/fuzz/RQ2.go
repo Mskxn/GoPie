@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync/atomic"
 	"time"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
@@ -51,11 +50,11 @@ func RQ2(bin string) {
 		ticket := time.NewTicker(10 * time.Second)
 		for {
 			<-ticket.C
-			o1sum, _, statesum := sharedCov.Size()
+			o1sum, o2sum, statesum := sharedCov.Size()
 			coveredsched := sharedCorpus.SchedCnt()
 			totalrun := sharedCorpus.FetchCnt()
-			score := atomic.LoadInt32(&sharedScore)
-			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\t%v\n", id, o1sum, statesum, coveredsched, score, totalrun)
+			// _ := atomic.LoadInt32(&sharedScore)
+			sumCh <- fmt.Sprintf("[%s]\t%v\t%v\t%v\t%v\t%v\n", id, o1sum, o2sum, coveredsched, statesum, totalrun)
 		}
 	}
 
