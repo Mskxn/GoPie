@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 	"toolkit/cmd"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/feedback"
@@ -12,7 +13,6 @@ import (
 func Full(path string, llevel string, feature string, maxworker int) {
 	resCh := make(chan string, 100000)
 	logCh := make(chan string, 100000)
-
 	// control
 	max := 48
 	if maxworker != 0 {
@@ -100,7 +100,7 @@ func Full(path string, llevel string, feature string, maxworker int) {
 		}
 	}
 
-	defer fmt.Printf("[Fuzzer] Finish\n")
+	defer fmt.Printf("%v [Fuzzer] Finish\n", time.Now().String())
 	cnt := 0
 	for {
 		select {
@@ -111,7 +111,7 @@ func Full(path string, llevel string, feature string, maxworker int) {
 				return
 			}
 		case v := <-logCh:
-			fmt.Printf("[WORKER] %s\n", v)
+			fmt.Printf("%v [WORKER] %s\n", time.Now().String(), v)
 		default:
 		}
 	}
