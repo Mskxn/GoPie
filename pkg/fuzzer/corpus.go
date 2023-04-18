@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	allowDup = 20
+	allowDup = 100
 	AttackP  = 40
 )
 

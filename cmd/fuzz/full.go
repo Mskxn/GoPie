@@ -10,8 +10,8 @@ import (
 )
 
 func Full(path string, llevel string, feature string, maxworker int) {
-	resCh := make(chan string, 1000)
-	logCh := make(chan string, 1000)
+	resCh := make(chan string, 100000)
+	logCh := make(chan string, 100000)
 
 	// control
 	max := 48

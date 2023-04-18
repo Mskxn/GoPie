@@ -222,8 +222,8 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			quit = cfg.MaxQuit
 			if init && ok { // init can get more coverage, do init instead of mutation
 				cfg.InitTurnCnt = cfg.InitTurnCnt * 2
-				if cfg.InitTurnCnt > 2000 {
-					cfg.InitTurnCnt = 2000
+				if cfg.InitTurnCnt > 400 {
+					cfg.InitTurnCnt = 400
 				}
 			}
 			go func() { // do mutation in a single routine, check the concurrency safety of corpus

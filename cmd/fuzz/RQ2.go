@@ -9,7 +9,7 @@ import (
 )
 
 func RQ2(bin string) {
-	sumCh := make(chan string, 10000)
+	sumCh := make(chan string, 1000000)
 	nolimit := make(chan struct{}, 0)
 	close(nolimit)
 	dowork := func(v *fuzzer.Visitor, cfg *fuzzer.Config) {
