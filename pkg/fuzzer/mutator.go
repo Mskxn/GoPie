@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	BOUND       = 5
+	BOUND       = 3
 	MUTATEBOUND = 128
 )
 
