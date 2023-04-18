@@ -105,7 +105,7 @@ func Full(path string, llevel string, feature string, maxworker int) {
 	for {
 		select {
 		case v := <-resCh:
-			fmt.Printf("[%v/%v]\t%s", cnt+1, total, v)
+			fmt.Printf("%v [%v/%v]\t%s", time.Now().String(), cnt+1, total, v)
 			cnt += 1
 			if cnt == total {
 				return
