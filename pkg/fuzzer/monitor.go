@@ -93,9 +93,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			done := make(chan int)
 			var o *Output
 			go func() {
-				<-ticket
 				t := e.Run(in)
-				ticket <- struct{}{}
 				o = &t
 				close(done)
 			}()
