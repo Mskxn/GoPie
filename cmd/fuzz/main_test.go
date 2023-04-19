@@ -11,5 +11,5 @@ func TestRQ2(t *testing.T) {
 }
 
 func TestFull(t *testing.T) {
-	Full("C:\\Users\\Msk\\GolandProjects\\toolkit\\testdata\\", "debug", 5)
+	Full("C:\\Users\\Msk\\GolandProjects\\toolkit\\testdata\\", "debug", "full", 5)
 }
