@@ -15,7 +15,7 @@ func Full(path string, llevel string, feature string, maxworker int) {
 	resCh := make(chan string, 100000)
 	logCh := make(chan string, 100000)
 	// control
-	max := 24
+	max := 48
 	if maxworker != 0 {
 		max = maxworker
 	}

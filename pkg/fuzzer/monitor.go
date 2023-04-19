@@ -88,13 +88,14 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				timeout:        cfg.TimeOut,
 				recovertimeout: cfg.RecoverTimeOut,
 			}
-			// _, ok := <-ticket
 			// atomic.AddInt32(&m.etimes, 1)
 			timeout := time.After(1 * time.Minute)
 			done := make(chan int)
 			var o *Output
 			go func() {
+				<-ticket
 				t := e.Run(in)
+				ticket <- struct{}{}
 				o = &t
 				close(done)
 			}()
