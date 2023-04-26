@@ -8,8 +8,9 @@ import (
 	"toolkit/pkg/fuzzer"
 )
 
-func RQ2(bin string) {
+func RQ2(bin string, fn string) {
 	sumCh := make(chan string, 1000000)
+	bugCh := make(chan string, 1000000)
 	nolimit := make(chan struct{}, 0)
 	close(nolimit)
 	dowork := func(v *fuzzer.Visitor, cfg *fuzzer.Config) {
@@ -17,36 +18,33 @@ func RQ2(bin string) {
 		m.Start(cfg, v, nolimit)
 	}
 
-	tests := ListTests(bin)
-
 	oneCase := func(id string, useanalysis, usefeedback, usesched, usestate, usemutate bool) []*fuzzer.Visitor {
 		newBugset := bug.NewBugSet()
 		sharedCov := feedback.NewCov()
 		sharedCorpus := fuzzer.NewCorpus()
 		sharedScore := int32(10)
 		logCh := make(chan string, 10000)
-		for _, test := range tests {
-			v := &fuzzer.Visitor{
-				V_cov:    sharedCov,
-				V_corpus: sharedCorpus,
-				V_score:  &sharedScore,
-			}
-
-			newCfg := fuzzer.NewConfig(bin, test, logCh, newBugset, "normal")
-			newCfg.UseAnalysis = useanalysis
-			newCfg.UseStates = usestate
-			newCfg.UseCoveredSched = usesched
-			newCfg.UseFeedBack = usefeedback
-			newCfg.UseMutate = usemutate
-			newCfg.MaxQuit = newCfg.MaxExecution
-
-			go dowork(v, newCfg)
-			go func() {
-				for {
-					<-logCh
-				}
-			}()
+		v := &fuzzer.Visitor{
+			V_cov:    sharedCov,
+			V_corpus: sharedCorpus,
+			V_score:  &sharedScore,
 		}
+		newCfg := fuzzer.NewConfig(bin, fn, logCh, newBugset, "normal")
+		newCfg.UseAnalysis = useanalysis
+		newCfg.UseStates = usestate
+		newCfg.UseCoveredSched = usesched
+		newCfg.UseFeedBack = usefeedback
+		newCfg.UseMutate = usemutate
+		newCfg.MaxQuit = newCfg.MaxExecution
+		newCfg.MaxWorker = 24
+
+		go dowork(v, newCfg)
+		go func() {
+			for {
+				log := <-logCh
+				bugCh <- fmt.Sprintf("%v [%v] %v", time.Now(), id, log)
+			}
+		}()
 		ticket := time.NewTicker(10 * time.Second)
 		for {
 			<-ticket.C
@@ -68,6 +66,8 @@ func RQ2(bin string) {
 	for {
 		select {
 		case v := <-sumCh:
+			fmt.Printf(v)
+		case v := <-bugCh:
 			fmt.Printf(v)
 		}
 	}

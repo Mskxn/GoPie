@@ -46,7 +46,7 @@ func main() {
 	case "RQ1":
 		RQ1(opts.PATH)
 	case "RQ2":
-		RQ2(opts.PATH)
+		RQ2(opts.PATH, opts.Fn)
 	case "lite":
 		var timeout, rtimeout int64
 		var maxworker int
