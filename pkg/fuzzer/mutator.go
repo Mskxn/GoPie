@@ -73,6 +73,19 @@ func (m *Mutator) mutateg(chain *Chain, energy int) []*Chain {
 				tset[nc2.ToString()] = nc2
 			}
 
+			//replace
+			if chain.Len() <= BOUND {
+				if rand.Int()%2 == 1 {
+					lastopid := chain.T().Next.Opid
+					rels := m.Cov.NextO2(lastopid)
+					for _, rel := range rels {
+						nc := chain.Copy()
+						nc.add(pkg.NewPair(lastopid, rel))
+						tset[nc.ToString()] = nc
+					}
+				}
+			}
+
 			// increase the length
 			if chain.Len() <= BOUND {
 				if rand.Int()%2 == 1 {

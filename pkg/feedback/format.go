@@ -214,12 +214,15 @@ func Log2Cov(info map[uint64][]OpAndStatus, allops []OpAndStatus) *Cov {
 		}
 	}
 	l := len(allops)
-	for i := 0; i < l-1; i++ {
-		if allops[i].Gid == allops[i+1].Gid {
-			if _, ok := cov.o2[allops[i].Opid]; !ok {
-				cov.o2[allops[i].Opid] = make(map[uint64]struct{})
+	for i := 0; i < l; i++ {
+		for j := i + 1; j < l; j++ {
+			if allops[i].Gid == allops[j].Gid {
+				if _, ok := cov.o2[allops[i].Opid]; !ok {
+					cov.o2[allops[i].Opid] = make(map[uint64]struct{})
+				}
+				cov.o2[allops[i].Opid][allops[i+1].Opid] = struct{}{} // concurrnecy orders
+				break
 			}
-			cov.o2[allops[i].Opid][allops[i+1].Opid] = struct{}{} // concurrnecy orders
 		}
 	}
 	return cov
