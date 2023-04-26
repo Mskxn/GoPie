@@ -18,7 +18,7 @@ func RQ2(bin string, fn string) {
 		m.Start(cfg, v, nolimit)
 	}
 
-	oneCase := func(id string, useanalysis, usefeedback, usesched, usestate, usemutate bool) []*fuzzer.Visitor {
+	oneCase := func(id string, useanalysis, usefeedback, useguide, usemutate bool) []*fuzzer.Visitor {
 		newBugset := bug.NewBugSet()
 		sharedCov := feedback.NewCov()
 		sharedCorpus := fuzzer.NewCorpus()
@@ -31,8 +31,6 @@ func RQ2(bin string, fn string) {
 		}
 		newCfg := fuzzer.NewConfig(bin, fn, logCh, newBugset, "normal")
 		newCfg.UseAnalysis = useanalysis
-		newCfg.UseStates = usestate
-		newCfg.UseCoveredSched = usesched
 		newCfg.UseFeedBack = usefeedback
 		newCfg.UseMutate = usemutate
 		newCfg.MaxQuit = newCfg.MaxExecution
@@ -56,12 +54,12 @@ func RQ2(bin string, fn string) {
 		}
 	}
 
-	go oneCase("FULL", true, true, true, true, true)
+	go oneCase("FULL", true, true, true, true)
 	// go oneCase("-An", false, true, true, true, true)
-	go oneCase("-FB", true, false, true, true, true)
+	go oneCase("-FB", true, false, true, true)
 	// go oneCase("-SC", true, true, false, true, true)
-	// go oneCase("-ST", true, true, true, false, true)
-	go oneCase("-MU", true, true, true, true, false)
+	go oneCase("-GU", true, true, false, true)
+	go oneCase("-MU", true, true, true, false)
 
 	for {
 		select {

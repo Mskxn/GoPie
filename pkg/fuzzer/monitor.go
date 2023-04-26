@@ -212,7 +212,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			corpus.GUpdateSeed(seeds)
 		}
 		ok := fncov.Merge(cov)
-		if (init && ok) || !cfg.UseFeedBack || (inputc != "empty chain" && coveredinput.Len() != 0) {
+		if (init && ok) || !cfg.UseGuide || (inputc != "empty chain" && coveredinput.Len() != 0) {
 			corpus.IncSchedCnt(schedres)
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
