@@ -34,7 +34,7 @@ func RQ2(bin string, fn string) {
 		newCfg.UseFeedBack = usefeedback
 		newCfg.UseMutate = usemutate
 		newCfg.MaxQuit = newCfg.MaxExecution
-		newCfg.MaxWorker = 24
+		newCfg.MaxWorker = 1
 
 		go dowork(v, newCfg)
 		go func() {
@@ -55,9 +55,7 @@ func RQ2(bin string, fn string) {
 	}
 
 	go oneCase("FULL", true, true, true, true)
-	// go oneCase("-An", false, true, true, true, true)
 	go oneCase("-FB", true, false, true, true)
-	// go oneCase("-SC", true, true, false, true, true)
 	go oneCase("-GU", true, true, false, true)
 	go oneCase("-MU", true, true, true, false)
 
