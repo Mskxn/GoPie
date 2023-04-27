@@ -68,7 +68,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 	}
 
 	wid := atomic.AddUint32(&workerID, 1)
-	ch := make(chan RunContext, cfg.MaxWorker*10)
+	ch := make(chan RunContext)
 	cancel := make(chan struct{})
 	quit := cfg.MaxQuit
 
