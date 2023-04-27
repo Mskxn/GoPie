@@ -40,7 +40,7 @@ func DefaultConfig() *Config {
 		UseAnalysis:     true,
 		UseMutate:       true,
 		UseGuide:        true,
-		TimeOut:         20,
+		TimeOut:         30,
 		RecoverTimeOut:  100,
 		InitTurnCnt:     100,
 		MaxQuit:         500,
@@ -60,10 +60,10 @@ func GokerConfig() *Config {
 		UseAnalysis:     true,
 		UseMutate:       true,
 		UseGuide:        true,
-		TimeOut:         5,
+		TimeOut:         30,
 		RecoverTimeOut:  100,
-		InitTurnCnt:     10,
-		MaxQuit:         100000,
+		InitTurnCnt:     0,
+		MaxQuit:         2000,
 	}
 	return c
 }
