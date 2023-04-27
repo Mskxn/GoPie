@@ -34,7 +34,7 @@ func RQ2(bin string, fn string) {
 		newCfg.UseFeedBack = usefeedback
 		newCfg.UseMutate = usemutate
 		newCfg.MaxQuit = newCfg.MaxExecution
-		newCfg.MaxWorker = 1
+		newCfg.MaxWorker = 4
 
 		go dowork(v, newCfg)
 		go func() {

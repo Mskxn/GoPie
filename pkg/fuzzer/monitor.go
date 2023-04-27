@@ -24,8 +24,9 @@ type Monitor struct {
 }
 
 type RunContext struct {
-	In  Input
-	Out Output
+	In      Input
+	Out     Output
+	timeout bool
 }
 
 var workerID uint32
@@ -90,6 +91,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			}
 			// atomic.AddInt32(&m.etimes, 1)
 			timeout := time.After(1 * time.Minute)
+			var istimeout bool
 			done := make(chan int)
 			var o *Output
 			go func() {
@@ -100,6 +102,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			select {
 			case <-done:
 			case <-timeout:
+				istimeout = true
 			}
 			// if ok {
 			//	ticket <- struct{}{}
@@ -110,7 +113,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			if debug {
 				cfg.LogCh <- fmt.Sprintf("%s\t[EXECUTOR] Finish, USE %s", time.Now().String(), o.Time.String())
 			}
-			ch <- RunContext{In: in, Out: *o}
+			ch <- RunContext{In: in, Out: *o, timeout: istimeout}
 			select {
 			case <-cancel:
 				break
@@ -212,7 +215,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			corpus.GUpdateSeed(seeds)
 		}
 		ok := fncov.Merge(cov)
-		if (init && ok) || !cfg.UseGuide || (inputc != "empty chain" && coveredinput.Len() != 0) {
+		if (init && ok) || !cfg.UseGuide || (inputc != "empty chain" && coveredinput.Len() != 0 && !ctx.timeout) {
 			corpus.IncSchedCnt(schedres)
 			if info {
 				cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] NEW score: [%v/%v] Input:%s", time.Now().String(), wid, score, curmax, schedres)
