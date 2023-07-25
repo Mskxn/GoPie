@@ -329,7 +329,6 @@ func baseCheck(t *testing.T) {
 		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/consensus/ethash.(*remoteSealer).loop"),
 		goleak.MaxRetryAttempts(24),
 		goleak.MaxSleepInterval(10 * time.Second),
-		goleak.IgnoreCurrent(),
 	}
 
 	goleak.VerifyNone(t, opts...)
