@@ -12,14 +12,14 @@ const (
 	linuxPath = "./bin/inst"
 )
 
-func Inst(paths []string) {
+func Inst(paths []string, check_pos string) {
 	resCh := make(chan string, 100)
 	var toolpath = localPath
 	if runtime.GOOS == "linux" {
 		toolpath = linuxPath
 	}
 	dowork := func(path string) {
-		command := exec.Command(toolpath, "--file", path)
+		command := exec.Command(toolpath, "--file", path, "--checkpos", check_pos)
 		var out, out2 bytes.Buffer
 		command.Stdout = &out
 		command.Stderr = &out2

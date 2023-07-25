@@ -10,15 +10,15 @@ import (
 )
 
 var opts struct {
-	T        string `long:"timeout" description:"Instrument single go source file"`
-	RT       string `long:"recovertimeout" description:"Output instrumented golang source file to the given file. Only allow when instrumenting single golang source file"`
-	FB       string `long:"usefeedback" description:"Instrument all go source file under this dir"`
-	PATH     string `long:"path" description:"path"`
-	TASK     string `long:"task" description:"task"`
-	LL       string `long:"llevel" description:"log level [info, debug, normal]"`
-	MaxWoker string `long:"max" description:"max worker"`
-	Fn       string `long:"func" description:"function"`
-	Feature  string `long:"feature" description:"full|fb|mu"`
+	T         string `long:"timeout" description:"Instrument single go source file"`
+	RT        string `long:"recovertimeout" description:"Output instrumented golang source file to the given file. Only allow when instrumenting single golang source file"`
+	PATH      string `long:"path" description:"path"`
+	TASK      string `long:"task" description:"task"`
+	LL        string `long:"llevel" description:"log level [info, debug, normal]"`
+	MaxWoker  string `long:"max" description:"max worker"`
+	Fn        string `long:"func" description:"function"`
+	Feature   string `long:"feature" description:"[full, fb (without feedback), mu (without mutation)]"`
+	LeakCheck string `long:"check" description:"the position of leakcheck [inside, outside]"`
 }
 
 func ParseFlags() {
@@ -71,7 +71,11 @@ func main() {
 		paths := cmd.ListFiles(opts.PATH, func(s string) bool {
 			return strings.HasSuffix(s, ".go")
 		})
-		Inst(paths)
+		pos := "outside"
+		if opts.LeakCheck != "" {
+			pos = opts.LeakCheck
+		}
+		Inst(paths, pos)
 	case "bins":
 		paths := cmd.ListFiles(opts.PATH, func(s string) bool {
 			return strings.HasSuffix(s, ".go")
