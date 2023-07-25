@@ -20,13 +20,9 @@ var timeout, recovertimeout time.Duration
 
 var config *Config
 var cancel chan struct{}
-var once sync.Once
 
 const (
-	debugSched   = true
-	IgnoreOrders = false
-	MAXCHECKTRY  = 10
-	MAXATTACKTRY = 5
+	debugSched = true
 )
 
 func init() {
@@ -288,10 +284,8 @@ func Done(ch chan struct{}) {
 }
 
 func Leakcheck(t *testing.T) {
-	once.Do(func() {
-		close(cancel)
-		baseCheck(t)
-	})
+	close(cancel)
+	baseCheck(t)
 }
 
 func readlines(filename string) []string {
@@ -318,7 +312,7 @@ func readlines(filename string) []string {
 	return res
 }
 
-func baseCheck(t *testing.T) bool {
+func baseCheck(t *testing.T) {
 	opts := []goleak.Option{
 		goleak.IgnoreTopFunction("time.Sleep"),
 		goleak.IgnoreTopFunction("testing.(*F).Fuzz.func1"),
@@ -331,8 +325,8 @@ func baseCheck(t *testing.T) bool {
 		goleak.IgnoreTopFunction("github.com/ethereum/go-ethereum/consensus/ethash.(*remoteSealer).loop"),
 		goleak.MaxRetryAttempts(24),
 		goleak.MaxSleepInterval(10 * time.Second),
-		goleak.IgnoreCurrent(),
+		// goleak.IgnoreCurrent(),
 	}
 
-	return goleak.VerifyNone(t, opts...)
+	goleak.VerifyNone(t, opts...)
 }
