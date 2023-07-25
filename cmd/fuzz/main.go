@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"toolkit/cmd"
-	"toolkit/cmd/fuzz/data_analysis"
 )
 
 var opts struct {
@@ -78,8 +77,6 @@ func main() {
 			return strings.HasSuffix(s, ".go")
 		})
 		Bins(paths)
-	case "graph":
-		data_analysis.GenGraph()
 	default:
 		fmt.Println("error argument" + " " + opts.TASK)
 	}
