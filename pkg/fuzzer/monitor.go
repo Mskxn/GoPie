@@ -152,7 +152,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 				if !exist {
 					detail := []string{inputc, strconv.FormatInt(int64(atomic.LoadInt32(&m.etimes)), 10), ctx.Out.O}
 					if normal {
-						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s\n%s\n%s", time.Now().String(), cfg.BugSet.Size(), inputc, detail[1], ctx.Out.O)
+						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s\n %s", time.Now().String(), cfg.BugSet.Size(), inputc, ctx.Out.O)
 					}
 					if debug {
 						topfs := ""
