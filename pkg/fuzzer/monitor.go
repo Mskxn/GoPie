@@ -82,10 +82,11 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 			}
 			e := Executor{}
 			in := Input{
-				c:              c,
-				ht:             ht,
-				cmd:            cfg.Bin,
-				args:           []string{"-test.v", "-test.run", cfg.Fn, "-test.timeout", "1m"},
+				c:    c,
+				ht:   ht,
+				cmd:  cfg.Bin,
+				args: []string{"-test.v", "-test.run", cfg.Fn},
+				// args:           []string{"-test.v", "-test.run", cfg.Fn, "-test.timeout", "30s"},
 				timeout:        cfg.TimeOut,
 				recovertimeout: cfg.RecoverTimeOut,
 			}
