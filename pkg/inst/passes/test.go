@@ -91,9 +91,9 @@ func (p *TestPass) GetPreApply(iCtx *inst.InstContext) func(*astutil.Cursor) boo
 
 				var testDecl ast.Decl
 				if p.Pos == "inside" {
-					testDecl = genTestDeclInside(testname, testfunc)
+					testDecl = genTestDeclWithTimeout(testname, testfunc)
 				} else {
-					testDecl = genTestDeclOutside(testname, testfunc)
+					testDecl = genTestDeclWithoutTimeout(testname, testfunc)
 				}
 				iCtx.AstFile.Decls = append(iCtx.AstFile.Decls, testDecl)
 				iCtx.SetMetadata(TestNeedInst, true)
@@ -107,24 +107,8 @@ func (p *TestPass) GetPostApply(iCtx *inst.InstContext) func(*astutil.Cursor) bo
 	return nil
 }
 
-func genTestDeclOutside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
+func genTestDeclWithoutTimeout(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 	testname := name + "_1"
-
-	decldone := &ast.AssignStmt{
-		Tok: token.DEFINE,
-		Lhs: []ast.Expr{&ast.Ident{Name: "done_xxx"}},
-		Rhs: []ast.Expr{NewArgCall("sched", "GetDone", []ast.Expr{})},
-	}
-
-	decltimeout := &ast.AssignStmt{
-		Tok: token.DEFINE,
-		Lhs: []ast.Expr{&ast.Ident{Name: "timeout_xxx"}},
-		Rhs: []ast.Expr{NewArgCall("sched", "GetTimeout", []ast.Expr{})},
-	}
-
-	testgodone := NewDeferExpr("sched", "Done", []ast.Expr{
-		&ast.Ident{Name: "done_xxx"},
-	})
 
 	checker := NewDeferExpr("sched", "Leakcheck", []ast.Expr{
 		&ast.BasicLit{
@@ -133,57 +117,14 @@ func genTestDeclOutside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 		},
 	})
 
-	testgobodylst := make([]ast.Stmt, len(fn.Body.List))
-	copy(testgobodylst, fn.Body.List)
-
-	testgobodylst = append([]ast.Stmt{testgodone}, fn.Body.List...)
-	testgobody := &ast.BlockStmt{List: testgobodylst}
-
-	testgo := &ast.GoStmt{Call: &ast.CallExpr{
-		Fun: &ast.FuncLit{
-			Type: &ast.FuncType{
-				Params: &ast.FieldList{
-					List: []*ast.Field{},
-				},
-			},
-			Body: testgobody,
-		},
-	}}
+	testbodylst := make([]ast.Stmt, len(fn.Body.List))
+	copy(testbodylst, fn.Body.List)
 
 	parseinput := &ast.ExprStmt{NewArgCall("sched", "ParseInput", []ast.Expr{})}
 
-	testselect := &ast.SelectStmt{
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.CommClause{
-					Comm: &ast.ExprStmt{
-						X: &ast.UnaryExpr{
-							Op: token.ARROW,
-							X:  &ast.Ident{Name: "timeout_xxx"},
-						},
-					},
-				},
-				&ast.CommClause{
-					Comm: &ast.ExprStmt{
-						X: &ast.UnaryExpr{
-							Op: token.ARROW,
-							X:  &ast.Ident{Name: "done_xxx"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	testbody := &ast.BlockStmt{List: []ast.Stmt{
-		parseinput,
-		decldone,
-		checker,
-		decltimeout,
-		testgo,
-		testselect,
-	},
-	}
+	testbody := []ast.Stmt{parseinput, checker}
+	testbody = append(testbody, testbodylst...)
+	block := &ast.BlockStmt{List: testbody}
 
 	testdecl := &ast.FuncDecl{
 		Name: &ast.Ident{Name: testname},
@@ -208,12 +149,12 @@ func genTestDeclOutside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 				},
 			},
 		},
-		Body: testbody,
+		Body: block,
 	}
 	return testdecl
 }
 
-func genTestDeclInside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
+func genTestDeclWithTimeout(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 	testname := name + "_1"
 
 	decldone := &ast.AssignStmt{

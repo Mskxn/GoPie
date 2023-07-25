@@ -146,7 +146,7 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		if ctx.Out.Err != nil {
 			// ignore normal test fail
 			if ctx.Out.Time < time.Duration(cfg.TimeOut)*time.Second &&
-				(strings.Contains(ctx.Out.O, "panic") || strings.Contains(ctx.Out.O, "found unexpected goroutines")) {
+				(strings.Contains(ctx.Out.O, "panic") || strings.Contains(ctx.Out.O, "found unexpected goroutines") || strings.Contains(ctx.Out.O, "all goroutines are asleep - deadlock!")) {
 				tfs := bug.TopF(ctx.Out.O)
 				exist := cfg.BugSet.Exist(tfs, cfg.Fn)
 				if !exist {
