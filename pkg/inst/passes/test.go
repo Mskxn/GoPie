@@ -170,6 +170,7 @@ func genTestDeclOutside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 							X:  &ast.Ident{Name: "done_xxx"},
 						},
 					},
+					Body: []ast.Stmt{checker},
 				},
 			},
 		},
@@ -178,7 +179,6 @@ func genTestDeclOutside(name string, fn *ast.FuncDecl) *ast.FuncDecl {
 	testbody := &ast.BlockStmt{List: []ast.Stmt{
 		parseinput,
 		decldone,
-		checker,
 		decltimeout,
 		testgo,
 		testselect,
