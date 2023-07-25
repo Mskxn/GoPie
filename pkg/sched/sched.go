@@ -21,6 +21,8 @@ var timeout, recovertimeout time.Duration
 var config *Config
 var cancel chan struct{}
 
+var once sync.Once
+
 const (
 	debugSched = true
 )
@@ -284,8 +286,10 @@ func Done(ch chan struct{}) {
 }
 
 func Leakcheck(t *testing.T) {
-	close(cancel)
-	baseCheck(t)
+	once.Do(func() {
+		close(cancel)
+		baseCheck(t)
+	})
 }
 
 func readlines(filename string) []string {
