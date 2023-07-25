@@ -147,13 +147,17 @@ func (m *Monitor) Start(cfg *Config, visitor *Visitor, ticket chan struct{}) (bo
 		if ctx.Out.Err != nil {
 			// ignore normal test fail
 			if ctx.Out.Time < time.Duration(cfg.TimeOut)*time.Second &&
-				(strings.Contains(ctx.Out.O, "panic") || strings.Contains(ctx.Out.O, "found unexpected goroutines") || strings.Contains(ctx.Out.O, "all goroutines are asleep - deadlock!")) {
+				(strings.Contains(ctx.Out.O, "panic") || strings.Contains(ctx.Out.O, "found unexpected goroutines") || strings.Contains(ctx.Out.Trace, "all goroutines are asleep - deadlock!")) {
 				tfs := bug.TopF(ctx.Out.O)
 				exist := cfg.BugSet.Exist(tfs, cfg.Fn)
 				if !exist {
 					detail := []string{inputc, strconv.FormatInt(int64(atomic.LoadInt32(&m.etimes)), 10), ctx.Out.O}
 					if normal {
-						cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s\n %s", time.Now().String(), cfg.BugSet.Size(), inputc, ctx.Out.O)
+						if strings.Contains(ctx.Out.Trace, "all goroutines are asleep - deadlock!") {
+							cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s", time.Now().String(), cfg.BugSet.Size(), inputc, "all goroutines are asleep - deadlock!")
+						} else {
+							cfg.LogCh <- fmt.Sprintf("%s\t[WORKER %v] CRASH [%v] \n %s", time.Now().String(), cfg.BugSet.Size(), inputc, ctx.Out.O)
+						}
 					}
 					if debug {
 						topfs := ""
