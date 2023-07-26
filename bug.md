@@ -1,6 +1,6 @@
 ## Bugs Found by GoPie
 
-We conduct concurrency testing on servel famous open-source projects written in Go. And this file is used to track bugs found by GoPie reported on Github.
+We conduct concurrency testing on servel famous open-source projects written in Go. And this file is used to track the bugs found by GoPie reported on Github.  
 
 | issue or pull request links                            | status                   |
 |--------------------------------------------------------|--------------------------|
