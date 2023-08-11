@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"toolkit/cmd"
 )
 
 const (
@@ -46,15 +47,15 @@ func Bins(paths []string) {
 			limit <- struct{}{}
 		}()
 		opath := workpath + "/testbins/" + strings.Replace(dir, "/", "_", -1)
-		cmd := fmt.Sprintf("cd %s && %s test -o %s -c .", dir, gopath, opath)
-		command := exec.Command("bash", "-c", cmd)
+		c := fmt.Sprintf("cd %s && %s test -o %s -c .", dir, gopath, opath)
+		command := exec.Command("bash", "-c", c)
 		var out, out2 bytes.Buffer
 		command.Stdout = &out
 		command.Stderr = &out2
 		err := command.Run()
 		if err == nil {
 			resCh <- fmt.Sprintf("Handle\t%s OK", opath)
-			t := ListTests(opath)
+			t := cmd.ListTests(opath)
 			mu.Lock()
 			tests = append(tests, t...)
 			mu.Unlock()

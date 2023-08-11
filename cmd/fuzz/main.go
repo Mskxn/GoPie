@@ -15,7 +15,7 @@ var opts struct {
 	PATH      string `long:"path" description:"path"`
 	TASK      string `long:"task" description:"task"`
 	LL        string `long:"llevel" description:"log level [info, debug, normal]"`
-	MaxWoker  string `long:"max" description:"max worker"`
+	MaxWoker  string `long:"max" description:"max workers"`
 	Fn        string `long:"func" description:"function"`
 	Feature   string `long:"feature" description:"[full, fb (without feedback), mu (without mutation)]"`
 	LeakCheck string `long:"check" description:"the position of leakcheck [inside, outside]"`
@@ -38,14 +38,6 @@ func ParseFlags() {
 func main() {
 	ParseFlags()
 	switch opts.TASK {
-	case "baselineA":
-		BaselineA(opts.PATH)
-	case "baselineB":
-		BaselineB(opts.PATH)
-	case "RQ1":
-		RQ1(opts.PATH)
-	case "RQ2":
-		RQ2(opts.PATH, opts.Fn)
 	case "lite":
 		var timeout, rtimeout int64
 		var maxworker int

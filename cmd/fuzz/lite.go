@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"toolkit/cmd"
 	"toolkit/pkg/bug"
 	"toolkit/pkg/fuzzer"
 )
@@ -38,7 +39,7 @@ func Lite(bin, fn string, llevel string, timeout, recovertimeout int, maxworker 
 		}
 		total = maxworker
 	} else {
-		tests := ListTests(bin)
+		tests := cmd.ListTests(bin)
 		for _, test := range tests {
 			fmt.Printf("[WORKER] Start %s\n", test)
 			go dowork(bin, test)

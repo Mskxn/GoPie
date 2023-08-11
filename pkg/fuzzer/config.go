@@ -63,7 +63,7 @@ func GokerConfig() *Config {
 		TimeOut:         30,
 		RecoverTimeOut:  100,
 		InitTurnCnt:     0,
-		MaxQuit:         2000,
+		MaxQuit:         10000,
 	}
 	return c
 }
