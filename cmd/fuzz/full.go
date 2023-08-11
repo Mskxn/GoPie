@@ -33,7 +33,7 @@ func Full(path string, llevel string, feature string, maxworker int) {
 	// bind tests and visitor to bins
 	total := 0
 	for _, bin := range bins {
-		tests := cmd.ListTests(bin)
+		tests := ListTests(bin)
 		bin2tests[bin] = tests
 		total += len(tests)
 	}

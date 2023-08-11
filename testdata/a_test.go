@@ -4,116 +4,75 @@ import (
 	sched "sched"
 	"sync"
 	"testing"
+	"time"
 )
 
-type Connection struct {
-	closeChan chan bool
+type simpleTokenTTLKeeper struct {
+	stopc chan struct{}
+	donec chan struct{}
+	mu    sync.Mutex
 }
 
-type idleAwareFramer struct {
-	resetChan chan bool
-	writeLock sync.Mutex
-	conn      *Connection
+func (tm *simpleTokenTTLKeeper) stop() {
+	select {
+	case tm.stopc <- struct{}{}:
+		sched.InstChAF(1005022347270, tm.stopc)
+	case <-tm.donec:
+		sched.InstChAF(1005022347271, tm.donec)
+	}
+	sched.InstChBF(1005022347267, tm.donec)
+	<-tm.donec
+	sched.InstChAF(1005022347267, tm.donec)
 }
 
-func (i *idleAwareFramer) monitor() {
-	var resetChan = i.resetChan
-Loop:
+func (tm *simpleTokenTTLKeeper) run() {
+	tokenTicker := time.NewTicker(1 * time.Second)
+	defer func() {
+		tokenTicker.Stop()
+		close(tm.donec)
+	}()
 	for {
 		select {
-		case <-i.conn.closeChan:
-			sched.InstChAF(1005022347269, i.conn.closeChan)
-			sched.InstChAF(712964571141, i.conn.closeChan)
-			sched.InstMutexBF(712964571142, &i.writeLock)
-			sched.InstMutexBF(1005022347270, &i.writeLock)
-			i.writeLock.Lock()
-			sched.InstMutexAF(1005022347270, &i.writeLock)
-			sched.InstMutexAF(712964571142, &i.writeLock)
-			sched.InstChBF(712964571138, resetChan)
-			sched.InstChBF(1005022347266, resetChan)
-			close(resetChan)
-			sched.InstChAF(1005022347266, resetChan)
-			sched.InstChAF(712964571138, resetChan)
-			i.resetChan = nil
-			sched.InstMutexBF(712964571143, &i.writeLock)
-			sched.InstMutexBF(1005022347271, &i.writeLock)
-			i.writeLock.Unlock()
-			sched.InstMutexAF(1005022347271, &i.writeLock)
-			sched.InstMutexAF(712964571143, &i.writeLock)
-			break Loop
+		case <-tokenTicker.C:
+			sched.InstChAF(1005022347272, tokenTicker.C)
+			sched.InstMutexBF(1005022347274, &tm.mu)
+			tm.mu.Lock()
+			sched.InstMutexAF(1005022347274, &tm.mu)
+			sched.InstMutexBF(1005022347275, &tm.mu)
+			tm.mu.Unlock()
+			sched.InstMutexAF(1005022347275, &tm.mu)
+		case <-tm.stopc:
+			sched.InstChAF(1005022347273, tm.stopc)
 		}
 	}
 }
 
-func (i *idleAwareFramer) WriteFrame() {
-	sched.InstMutexBF(712964571144, &i.writeLock)
-	sched.InstMutexBF(1005022347272, &i.writeLock)
-	i.writeLock.Lock()
-	sched.InstMutexAF(1005022347272, &i.writeLock)
-	sched.InstMutexAF(712964571144, &i.writeLock)
-	defer func() {
-		sched.InstMutexBF(712964571145, &i.writeLock)
-		i.writeLock.Unlock()
-		sched.InstMutexAF(712964571145, &i.writeLock)
-	}()
-	if i.resetChan == nil {
-		return
+func TestClose(t *testing.T) {
+	tm := simpleTokenTTLKeeper{
+		donec: make(chan struct{}),
+		stopc: make(chan struct{}),
+		mu:    sync.Mutex{},
 	}
-	sched.InstChBF(712964571139, i.resetChan)
-	sched.InstChBF(1005022347267, i.resetChan)
-	i.resetChan <- true
-	sched.InstChAF(1005022347267, i.resetChan)
-	sched.InstChAF(712964571139, i.resetChan)
+	go tm.run()
+	go tm.stop()
 }
-
-func NewIdleAwareFramer() *idleAwareFramer {
-	return &idleAwareFramer{
-		resetChan: make(chan bool),
-		conn: &Connection{
-			closeChan: make(chan bool),
-		},
-	}
-}
-
-// /
-// / G1                                         G2                                      helper goroutine
-// / i.monitor()
-// / <-i.conn.closeChan
-// /                                                    i.WriteFrame()
-// /                                                    i.writeLock.Lock()
-// /                                                    i.resetChan <-
-// /                                                                                            i.conn.closeChan<-
-// /    i.writeLock.Lock()
-// /    ----------------------G1,G2 deadlock------------------------
-// /
-func TestKubernetes6632(t *testing.T) {
-	i := NewIdleAwareFramer()
-
-	go func() {
-		sched. // helper goroutine
-			InstChBF(712964571140, i.conn.closeChan)
-		sched.InstChBF(1005022347268, i.conn.closeChan)
-		i.conn.closeChan <- true
-		sched.InstChAF(1005022347268, i.conn.closeChan)
-		sched.InstChAF(712964571140, i.conn.closeChan)
-	}()
-	go i.monitor()    // G1
-	go i.WriteFrame() // G2
-}
-func TestKubernetes6632_1(t *testing.T) {
+func TestClose_1(t *testing.T) {
 	sched.ParseInput()
-	defer sched.Leakcheck(t)
-	i := NewIdleAwareFramer()
-	ch := make(chan int)
+	done_xxx := sched.GetDone()
+	timeout_xxx := sched.GetTimeout()
 	go func() {
-		sched.
-			InstChBF(712964571140, i.conn.closeChan)
-		sched.InstChBF(1005022347268, i.conn.closeChan)
-		i.conn.closeChan <- true
-		sched.InstChAF(1005022347268, i.conn.closeChan)
-		sched.InstChAF(712964571140, i.conn.closeChan)
+		defer sched.Done(done_xxx)
+		defer sched.Leakcheck(t)
+		tm := simpleTokenTTLKeeper{
+			donec: make(chan struct{}),
+			stopc: make(chan struct{}),
+			mu:    sync.Mutex{},
+		}
+		go tm.run()
+		go tm.stop()
 	}()
-	<-ch
-	go i.monitor()
-	go i.WriteFrame()
+	select {
+	case <-timeout_xxx:
+	case <-done_xxx:
+	}
 }

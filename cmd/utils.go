@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"toolkit/pkg/inst"
 	"toolkit/pkg/utils/gofmt"
 )
@@ -25,24 +22,6 @@ func ListFiles(d string, f func(s string) bool) []string {
 		panic(err)
 	}
 	return files
-}
-
-func ListTests(bin string) []string {
-	res := make([]string, 0)
-	command := exec.Command(bin, "-test.list", "_1")
-	var out bytes.Buffer
-	command.Stdout = &out
-	err := command.Run()
-	if err == nil {
-		outstr := out.String()
-		ss := strings.Split(outstr, "\n")
-		for _, s := range ss {
-			if strings.HasPrefix(s, "Test") && strings.HasSuffix(s, "_1") {
-				res = append(res, s)
-			}
-		}
-	}
-	return res
 }
 
 func HandleSrcFile(src string, reg *inst.PassRegistry, passes []string) error {

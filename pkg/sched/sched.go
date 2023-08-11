@@ -122,8 +122,12 @@ func ParseAttackPair(s string) {
 
 func ParseInput() {
 	input_pairs := os.Getenv("Input")
+	attack_pairs := os.Getenv("Attack")
 	if input_pairs != "" {
 		ParsePair(input_pairs)
+	}
+	if attack_pairs != "" {
+		ParseAttackPair(attack_pairs)
 	}
 }
 
@@ -131,20 +135,23 @@ func SetTimeout(s int) {
 	timeout = time.Second * time.Duration(s)
 }
 
-func (c *Config) doWait(id uint64) (wait bool) {
+func (c *Config) doWait(id uint64) (is_attack bool, wait bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if _, ok := c.active[id]; !ok {
-		return false
+		return false, false
+	}
+	if _, ok := c.attackmap[id]; ok {
+		return true, true
 	}
 	if v, ok := c.waitmap[id]; ok {
 		if v <= 0 {
-			return false
+			return false, false
 		} else {
-			return true
+			return false, true
 		}
 	}
-	return false
+	return false, false
 }
 
 func (c *Config) waitDec(id uint64) {
@@ -161,8 +168,20 @@ func (c *Config) waitDec(id uint64) {
 }
 
 func InstChBF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
-	var wait bool
-	if wait = config.doWait(id); !wait {
+	var is_attack, wait bool
+	if is_attack, wait = config.doWait(id); !wait {
+		return
+	}
+	if is_attack {
+		//		for i := 0; i < MAXATTACKTRY; i++ {
+		//			pid, _ := config.attackmap[id]
+		//			_, ok := event.Load(pid)
+		//			if ok {
+		//				return
+		//			} else {
+		//				runtime.Gosched()
+		//			}
+		//		}
 		return
 	}
 	pid := config.findPrev(id)
@@ -195,9 +214,21 @@ func InstChAF[T any | chan T | <-chan T | chan<- T](id uint64, o T) {
 }
 
 func InstMutexBF(id uint64, o any) {
-	var wait bool
-	if wait = config.doWait(id); !wait {
+	var is_attack, wait bool
+	if is_attack, wait = config.doWait(id); !wait {
 		return
+	}
+	if is_attack {
+		//	for i := 0; i < MAXATTACKTRY; i++ {
+		//		pid, _ := config.attackmap[id]
+		//		_, ok := event.Load(pid)
+		//		if ok {
+		//			return
+		//		} else {
+		//			runtime.Gosched()
+		//		}
+		//	}
+		//	return
 	}
 	for {
 		pid := config.findPrev(id)

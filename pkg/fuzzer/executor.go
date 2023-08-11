@@ -36,6 +36,11 @@ func (e *Executor) Run(in Input) Output {
 	} else {
 		instr = "Input=" + in.c.ToString()
 	}
+	if in.c == nil {
+		htstr = "Attack="
+	} else {
+		htstr = "Attack=" + in.ht.ToString()
+	}
 
 	command.Env = append(os.Environ(), instr, htstr)
 	if in.timeout != 0 {
